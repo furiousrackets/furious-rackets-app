@@ -5,3 +5,4 @@ __pycache__/
 .claude/
 node_modules/
 site/data.json
+dist/

@@ -4,9 +4,14 @@
   "type": "module",
   "scripts": {
     "build": "node tools/build-content.mjs",
-    "start": "npm run build && cd site && python3 -m http.server 8000"
+    "dist": "node tools/prerender.mjs",
+    "start": "npm run build && cd site && python3 -m http.server 8000",
+    "preview": "npm run build && npm run dist && cd dist && python3 -m http.server 8000"
   },
   "dependencies": {
     "marked": "^17.0.1"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }

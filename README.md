@@ -23,6 +23,7 @@ content/                   содержимое сайта — его прави
   coaches/*.json           справочник «Тренеры»
   hero.json, signup.json, partners.json, faq.json, final.json — остальные блоки
 tools/build-content.mjs    сборка: content/ → site/data.json
+tools/prerender.mjs        для поисковиков: site/ → dist/ (готовый HTML, sitemap.xml, schema.org)
 site/                      публикуемая папка — это и есть сайт
   index.html
   css/style.css
@@ -30,6 +31,7 @@ site/                      публикуемая папка — это и ес�
   data.json                собирается автоматически, в git не хранится
   media/                   картинки, загруженные через админку
   assets/                  оформление: логотип, маскот, иконки — не для админки
+  robots.txt               правила для поисковых роботов и ссылка на sitemap
 .github/workflows/deploy.yml   сборка и публикация на GitHub Pages
 ```
 
@@ -123,6 +125,7 @@ site/                      публикуемая папка — это и ес�
 ```bash
 npm install        # один раз
 npm start          # собрать data.json и запустить сервер на http://localhost:8000
+npm run preview    # то же, но версия для публикации из dist/ — как увидит поисковик
 ```
 
 Или по шагам: `npm run build`, затем `cd site && python3 -m http.server 8000`.
@@ -134,10 +137,46 @@ npm start          # собрать data.json и запустить сервер
 
 При каждом push в `main` (в том числе при сохранении в Pages CMS) workflow
 `.github/workflows/deploy.yml` устанавливает зависимости, собирает `site/data.json`
-и публикует папку `site`. Запустить руками: Actions → Deploy to GitHub Pages → Run workflow.
+готовит папку `dist` для поисковиков (`npm run dist`) и публикует её. Запустить руками: Actions → Deploy to GitHub Pages → Run workflow.
 
 Домен `furiousrackets.ru` подключён в Settings → Pages → Custom domain. Файл `CNAME`
 не нужен: при публикации через Actions GitHub его не использует.
+
+## Поисковики (Яндекс, Google)
+
+Все блоки сайта рисует `site/js/app.js` из `data.json`. Чтобы поисковики видели текст
+без JavaScript, при публикации `tools/prerender.mjs` запускает этот же `app.js` на сервере
+и сохраняет уже заполненную страницу в `dist/index.html`. В браузере `app.js`, как и раньше,
+загружает свежий `data.json` и перерисовывает блоки. Там же:
+
+- в `<head>` добавляется разметка schema.org (`SportsClub`): название, телефон, цены,
+  площадки с адресами, тренер, соцсети — всё берётся из админки;
+- пишется `sitemap.xml` с датой сборки; `site/robots.txt` на него ссылается.
+
+`<title>` и `<meta name="description">` — в `site/index.html`. В них должны оставаться
+слова, по которым ищут: «бадминтон», «Саратов», «тренировки».
+
+Если меняете разметку блоков в `app.js`, проверьте `npm run preview`: код должен работать
+и в браузере, и в jsdom при сборке (без `IntersectionObserver` и сети).
+
+### Что сделать один раз вне репозитория
+
+1. **Домен.** В Рег.ру: домен оплачен, данные администратора подтверждены, DNS-серверы
+   указаны. Записи: `A` для `@` → `185.199.108.153`, `185.199.109.153`, `185.199.110.153`,
+   `185.199.111.153`; `CNAME` для `www` → `furiousrackets.github.io`.
+   Проверка: `dig +short furiousrackets.ru` показывает эти адреса.
+2. **HTTPS.** GitHub → Settings → Pages: Custom domain `furiousrackets.ru`, дождаться
+   сертификата, включить **Enforce HTTPS**.
+3. **Яндекс Вебмастер** (webmaster.yandex.ru): добавить `https://furiousrackets.ru/`,
+   подтвердить права TXT-записью в DNS (или метатегом в `site/index.html`),
+   «Региональность» → Саратов, «Файлы Sitemap» → `https://furiousrackets.ru/sitemap.xml`,
+   «Переобход страниц» → главная.
+4. **Google Search Console**: ресурс «Доменный» `furiousrackets.ru`, подтверждение TXT-записью
+   в DNS, «Файлы Sitemap» → `sitemap.xml`, «Проверка URL» → «Запросить индексирование».
+5. **Карты**: карточка клуба в Яндекс Бизнесе, 2ГИС и Google Business Profile — со ссылкой
+   на сайт, телефоном и расписанием. По запросу «бадминтон саратов» Яндекс первым
+   показывает организации на карте.
+6. **Ссылки на сайт**: в описании групп Telegram и ВКонтакте, в профиле Instagram.
 
 ## Для разработчика: как добавить поле или раздел
 
