@@ -607,6 +607,13 @@ p { margin: 0 0 1em; }
   background: #000;
 }
 
+/* Обложки акций и турниров — горизонтальные, 16:9 */
+.promo__media img,
+.tournament__media img { aspect-ratio: 16 / 9; }
+
+.promo__media.card-placeholder,
+.tournament__media.card-placeholder { aspect-ratio: 16 / 9; }
+
 .promo__body,
 .tournament__body { padding: 22px 20px; }
 
@@ -1002,6 +1009,26 @@ a.partner:hover .partner__name { color: var(--acc); }
 
 .step > .step__num { margin-bottom: 2px; }
 
+/* Акции и турниры в несколько колонок: карточки одной высоты, заголовки
+   занимают место под две строки, кнопка прижата к низу — всё в ряду на одном уровне */
+.promo,
+.tournament { grid-template-rows: auto 1fr; }
+
+.promo__body > .btn,
+.tournament__body > .btn { margin-top: auto; }
+
+.promo__text,
+.tournament__text { margin-bottom: 6px; }
+
+@media (min-width: 680px) {
+  .cards:not([data-count="1"]) .promo__title,
+  .cards:not([data-count="1"]) .tournament__title { min-height: 2.04em; }
+
+  /* в несколько колонок кнопки на всю ширину карточки — одинаковые в ряду */
+  .cards:not([data-count="1"]) .promo__body > .btn,
+  .cards:not([data-count="1"]) .tournament__body > .btn { align-self: stretch; }
+}
+
 /* ---------- окно «Записаться» ----------
    На телефоне выезжает снизу, на широком экране — окно по центру. */
 
@@ -1124,13 +1151,19 @@ a.partner:hover .partner__name { color: var(--acc); }
 
   .cards[data-count="1"] > .is-textonly { grid-template-columns: 1fr; }
 
-  .cards[data-count="1"] .promo__media img,
-  .cards[data-count="1"] .tournament__media img,
   .cards[data-count="1"] .coach__media img {
     aspect-ratio: auto;
     height: 100%;
     min-height: 280px;
   }
+
+  /* одна акция или турнир: обложка 16:9 целиком (на ней надписи), текст — по центру рядом */
+  .cards[data-count="1"] > .promo:not(.is-textonly),
+  .cards[data-count="1"] > .tournament:not(.is-textonly) {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: center;
+  }
+
 
   .cards[data-count="1"] .promo__body,
   .cards[data-count="1"] .tournament__body,
