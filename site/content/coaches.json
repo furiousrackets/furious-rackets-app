@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "Аня",
+      "photo": "",
+      "about": "Самый крутой в мире тренер",
+      "telegram": "https://t.me/ruslaniskenderov",
+      "show": true
+    },
+    {
+      "name": "Тренер 2",
+      "photo": "",
+      "about": "Какое то описание",
+      "telegram": "https://t.me/ruslaniskenderov",
+      "show": true
+    }
+  ]
+}

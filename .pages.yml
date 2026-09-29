@@ -1,0 +1,368 @@
+# Настройка админки Pages CMS (https://app.pagescms.org).
+# Каждый раздел ниже — пункт в меню админки. Подписи (label) видит админ,
+# технические имена (name) — это ключи в файлах site/content/*.json, их не менять:
+# по ним сайт находит данные (см. site/js/app.js).
+
+media:
+  input: site/media
+  output: media
+  categories: [image]
+  rename: safe
+
+content:
+  - name: settings
+    label: Главный экран и контакты
+    type: file
+    path: site/content/settings.json
+    format: json
+    fields:
+      - name: hero_title
+        label: Заголовок на первом экране
+        type: string
+        required: true
+      - name: hero_slogan
+        label: Слоган на салатовой плашке
+        type: string
+      - name: hero_text
+        label: Текст под заголовком
+        type: text
+      - name: phone
+        label: Телефон для записи
+        type: string
+        description: Номер на главной кнопке, например +7 (927) 000-00-00
+      - name: phone_name
+        label: Подпись под телефоном
+        type: string
+        description: Кто возьмёт трубку. Пусто — подписи не будет.
+      - name: group_telegram
+        label: Группа в Telegram
+        type: string
+        description: Ссылка вида https://t.me/… — сюда ведёт кнопка «Группа в Telegram»
+      - name: coach_telegram
+        label: Telegram тренера
+        type: string
+        description: Ссылка вида https://t.me/… — подставляется вместо {тренер} в текстах
+      - name: tournaments_intro
+        label: Вступление к блоку «Турниры»
+        type: text
+
+  - name: schedule
+    label: Расписание
+    type: file
+    path: site/content/schedule.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{day}, {time} — {venue}"
+        fields:
+          - name: day
+            label: День недели
+            type: select
+            required: true
+            options:
+              values: [Понедельник, Вторник, Среда, Четверг, Пятница, Суббота, Воскресенье]
+          - name: time
+            label: Время
+            type: string
+            required: true
+            description: Например 20:30–22:00
+          - name: venue
+            label: Площадка
+            type: string
+            description: Короткое название — точно как в разделе «Площадки» (например СГМУ, Динамо)
+          - name: type
+            label: Тип тренировки
+            type: select
+            options:
+              values: [рабочая, игровая]
+          - name: levels
+            label: Уровни
+            type: select
+            description: Ничего не выбрано — на сайте будет «все уровни»
+            options:
+              multiple: true
+              values: [E, E+, D, D+, C, C+, B, B+, A]
+          - name: price
+            label: Цена, ₽
+            type: number
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: venues
+    label: Площадки
+    type: file
+    path: site/content/venues.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{name}"
+        fields:
+          - name: name
+            label: Короткое название
+            type: string
+            required: true
+            description: По нему площадка связывается с расписанием и турнирами
+          - name: full_name
+            label: Полное название
+            type: string
+          - name: address
+            label: Адрес
+            type: string
+          - name: map_link
+            label: Ссылка на карту
+            type: string
+            description: Можно не заполнять — сайт сам построит ссылку на Яндекс Карты по адресу
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: trainings
+    label: Виды тренировок
+    type: file
+    path: site/content/trainings.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{title}"
+        fields:
+          - name: title
+            label: Название
+            type: string
+            required: true
+          - name: description
+            label: Описание
+            type: text
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: promos
+    label: Акции
+    type: file
+    path: site/content/promos.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{title}"
+        fields:
+          - name: title
+            label: Заголовок
+            type: string
+            required: true
+          - name: text
+            label: Текст
+            type: text
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: image
+            label: Картинка
+            type: image
+          - name: button_label
+            label: Текст кнопки
+            type: string
+            description: Пусто — кнопки не будет
+          - name: button_link
+            label: Ссылка кнопки
+            type: string
+            description: Пусто — кнопка ведёт в группу Telegram
+          - name: until
+            label: Показывать до (включительно)
+            type: date
+            default: ""
+            description: На следующий день акция сама исчезнет с сайта. Пусто — бессрочно.
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: tournaments
+    label: Турниры
+    type: file
+    path: site/content/tournaments.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{title}"
+        fields:
+          - name: title
+            label: Название
+            type: string
+            required: true
+          - name: dates
+            label: Когда
+            type: string
+            description: Например 26–27 сентября, 18:00–22:00
+          - name: place
+            label: Где
+            type: string
+            description: Короткое название площадки (СГМУ, Динамо) или любой текст
+          - name: text
+            label: Описание
+            type: text
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: poster
+            label: Афиша
+            type: image
+          - name: link
+            label: Ссылка «Подробнее»
+            type: string
+            description: Пусто — кнопки не будет
+          - name: until
+            label: Показывать до (включительно)
+            type: date
+            default: ""
+            description: На следующий день турнир сам исчезнет с сайта. Пусто — бессрочно.
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: coaches
+    label: Тренеры
+    type: file
+    path: site/content/coaches.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{name}"
+        fields:
+          - name: name
+            label: Имя
+            type: string
+            required: true
+          - name: photo
+            label: Фото
+            type: image
+          - name: about
+            label: О себе
+            type: text
+          - name: telegram
+            label: Telegram
+            type: string
+            description: Ссылка вида https://t.me/…
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: partners
+    label: Партнёры
+    type: file
+    path: site/content/partners.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{name}"
+        fields:
+          - name: name
+            label: Название
+            type: string
+            required: true
+          - name: description
+            label: Описание
+            type: string
+          - name: logo
+            label: Логотип
+            type: image
+            description: Без логотипа на сайте будет название текстом
+          - name: link
+            label: Ссылка
+            type: string
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: faq
+    label: Вопросы и ответы
+    type: file
+    path: site/content/faq.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{question}"
+        fields:
+          - name: question
+            label: Вопрос
+            type: string
+            required: true
+          - name: answer
+            label: Ответ
+            type: text
+            required: true
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
+
+  - name: socials
+    label: Соцсети (внизу страницы)
+    type: file
+    path: site/content/socials.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{name}"
+        fields:
+          - name: name
+            label: Название
+            type: string
+            required: true
+          - name: link
+            label: Ссылка
+            type: string
+            required: true
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true

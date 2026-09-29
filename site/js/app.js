@@ -1,23 +1,13 @@
 (function () {
   'use strict';
 
-  var CFG = window.SITE_CONFIG || {};
-  var DEFAULTS = window.DEFAULT_CONTENT || {};
-  var SHEET_ID = String(CFG.SHEET_ID || '').trim();
-  var TIMEOUT_MS = Number(CFG.TIMEOUT_MS) > 0 ? Number(CFG.TIMEOUT_MS) : 6000;
+  // Содержимое сайта лежит в site/content/*.json и редактируется через Pages CMS
+  // (настройка полей — в .pages.yml в корне репозитория).
+  var CONTENT_DIR = 'content/';
+  var TIMEOUT_MS = 8000;
 
-  var SHEETS = {
-    settings: { name: 'Настройки', required: ['ключ', 'значение'] },
-    trainings: { name: 'Тренировки', required: ['название', 'описание'] },
-    schedule: { name: 'Расписание', required: ['день', 'время'] },
-    venues: { name: 'Площадки', required: ['название', 'адрес'] },
-    promos: { name: 'Акции', required: ['заголовок', 'текст'] },
-    tournaments: { name: 'Турниры', required: ['название'] },
-    coaches: { name: 'Тренер', required: ['имя'] },
-    partners: { name: 'Партнёры', required: ['название'] },
-    faq: { name: 'FAQ', required: ['вопрос', 'ответ'] },
-    socials: { name: 'Соцсети', required: ['название', 'ссылка'] }
-  };
+  var FILES = ['settings', 'trainings', 'schedule', 'venues', 'promos',
+    'tournaments', 'coaches', 'partners', 'faq', 'socials'];
 
   var FALLBACK_TELEGRAM = 'https://t.me/furiousrackets';
 
@@ -102,119 +92,29 @@
     return esc(raw);
   }
 
+  // Pages CMS пишет путь к картинке как «media/файл.jpg». Ведущий «/» убираем,
+  // чтобы картинки работали и на github.io/<репозиторий>/, и на своём домене.
+  function mediaUrl(value) {
+    var raw = stripControls(value).trim().replace(/^\/(?!\/)/, '');
+    return safeUrl(raw);
+  }
+
   function telHref(phone) {
     var digits = String(phone || '').replace(/[^\d+]/g, '');
     return digits ? 'tel:' + esc(digits) : '';
   }
 
-  function normalizeHeader(value) {
-    return String(value == null ? '' : value)
-      .replace(/﻿/g, '')
-      .trim()
-      .toLowerCase()
-      .replace(/ё/g, 'е')
-      .replace(/\s+/g, ' ');
-  }
-
   function cell(row, key) {
     var value = row ? row[key] : '';
+    if (Array.isArray(value)) value = value.join(', ');
     return String(value == null ? '' : value).trim();
-  }
-
-  /* ---------- CSV ---------- */
-
-  function parseCSV(text) {
-    var input = String(text == null ? '' : text).replace(/^﻿/, '');
-    var rows = [];
-    var row = [];
-    var field = '';
-    var inQuotes = false;
-    var i = 0;
-
-    while (i < input.length) {
-      var ch = input.charAt(i);
-
-      if (inQuotes) {
-        if (ch === '"') {
-          if (input.charAt(i + 1) === '"') {
-            field += '"';
-            i += 2;
-            continue;
-          }
-          inQuotes = false;
-          i += 1;
-          continue;
-        }
-        field += ch;
-        i += 1;
-        continue;
-      }
-
-      if (ch === '"') {
-        inQuotes = true;
-        i += 1;
-        continue;
-      }
-      if (ch === ',') {
-        row.push(field);
-        field = '';
-        i += 1;
-        continue;
-      }
-      if (ch === '\r' || ch === '\n') {
-        row.push(field);
-        rows.push(row);
-        row = [];
-        field = '';
-        i += (ch === '\r' && input.charAt(i + 1) === '\n') ? 2 : 1;
-        continue;
-      }
-      field += ch;
-      i += 1;
-    }
-
-    row.push(field);
-    rows.push(row);
-    return rows;
-  }
-
-  function toObjects(matrix) {
-    if (!matrix || !matrix.length) return null;
-    var headers = matrix[0].map(normalizeHeader);
-    var result = [];
-
-    for (var r = 1; r < matrix.length; r += 1) {
-      var source = matrix[r];
-      var item = {};
-      var hasValue = false;
-
-      for (var c = 0; c < headers.length; c += 1) {
-        if (!headers[c]) continue;
-        var value = String(source[c] == null ? '' : source[c]).trim();
-        item[headers[c]] = value;
-        if (value) hasValue = true;
-      }
-      if (hasValue) result.push(item);
-    }
-    return { headers: headers, rows: result };
-  }
-
-  function hasRequiredHeaders(table, required) {
-    if (!table) return false;
-    for (var i = 0; i < required.length; i += 1) {
-      if (table.headers.indexOf(required[i]) === -1) return false;
-    }
-    return true;
   }
 
   /* ---------- фильтры строк ---------- */
 
-  var HIDDEN_WORDS = ['нет', 'no', '0', 'false'];
-
   function isShown(row) {
-    var flag = cell(row, 'показывать').toLowerCase().replace(/ё/g, 'е');
-    if (!flag) return true;
-    return HIDDEN_WORDS.indexOf(flag) === -1;
+    if (!row || typeof row !== 'object') return false;
+    return row.show !== false && row.show !== 'false';
   }
 
   function parseDate(value) {
@@ -242,7 +142,7 @@
   }
 
   function isActual(row) {
-    var raw = cell(row, 'до');
+    var raw = cell(row, 'until');
     if (!raw) return true;
     var until = parseDate(raw);
     if (!until) return true;
@@ -259,21 +159,19 @@
 
   /* ---------- загрузка ---------- */
 
-  function sheetUrl(name) {
-    return 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(SHEET_ID) +
-      '/gviz/tq?tqx=out:csv&headers=1&sheet=' + encodeURIComponent(name);
-  }
-
-  function fetchSheet(name) {
+  function fetchJson(name) {
     if (typeof fetch !== 'function') return Promise.reject(new Error('no fetch'));
 
     var controller = typeof AbortController === 'function' ? new AbortController() : null;
-    var options = controller ? { signal: controller.signal } : {};
+    // no-cache: браузер каждый раз сверяется с сервером, и правки из админки
+    // видны сразу после публикации, а не через 10 минут кеша GitHub Pages.
+    var options = { cache: 'no-cache' };
+    if (controller) options.signal = controller.signal;
     var timer;
 
-    var request = fetch(sheetUrl(name), options).then(function (response) {
+    var request = fetch(CONTENT_DIR + name + '.json', options).then(function (response) {
       if (!response.ok) throw new Error('HTTP ' + response.status);
-      return response.text();
+      return response.json();
     });
 
     var timeout = new Promise(function (_, reject) {
@@ -283,39 +181,32 @@
       }, TIMEOUT_MS);
     });
 
-    return Promise.race([request, timeout]).then(function (text) {
+    return Promise.race([request, timeout]).then(function (data) {
       clearTimeout(timer);
-      return text;
+      return data;
     }, function (error) {
       clearTimeout(timer);
       throw error;
     });
   }
 
-  function defaultRows(sheetName) {
-    var rows = DEFAULTS[sheetName];
-    return Array.isArray(rows) ? rows.slice() : [];
-  }
-
-  function loadSheet(key) {
-    var meta = SHEETS[key];
-    if (!SHEET_ID) return Promise.resolve(defaultRows(meta.name));
-
-    return fetchSheet(meta.name).then(function (text) {
-      var table = toObjects(parseCSV(text));
-      if (!hasRequiredHeaders(table, meta.required)) return defaultRows(meta.name);
-      return table.rows;
+  // Списки лежат в файлах как { "items": [...] }, настройки — простым объектом.
+  // Если файл не загрузился или испорчен, блок просто скрывается.
+  function loadFile(name) {
+    return fetchJson(name).then(function (data) {
+      if (name === 'settings') return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+      var items = data && Array.isArray(data.items) ? data.items : [];
+      return items.filter(function (item) { return item && typeof item === 'object'; });
     }).catch(function () {
-      return defaultRows(meta.name);
+      return name === 'settings' ? {} : [];
     });
   }
 
   function loadContent() {
-    var keys = Object.keys(SHEETS);
-    return Promise.all(keys.map(loadSheet)).then(function (results) {
+    return Promise.all(FILES.map(loadFile)).then(function (results) {
       var data = {};
-      keys.forEach(function (key, index) {
-        data[key] = results[index];
+      FILES.forEach(function (name, index) {
+        data[name] = results[index];
       });
       return data;
     });
@@ -323,11 +214,10 @@
 
   /* ---------- настройки ---------- */
 
-  function toSettings(rows) {
+  function toSettings(source) {
     var map = {};
-    (rows || []).forEach(function (row) {
-      var key = cell(row, 'ключ').toLowerCase();
-      if (key) map[key] = cell(row, 'значение');
+    Object.keys(source || {}).forEach(function (key) {
+      map[key] = cell(source, key);
     });
     return map;
   }
@@ -400,8 +290,8 @@
 
     host.innerHTML = items.map(function (row) {
       return '<article class="training">' +
-        '<h3 class="training__title">' + esc(cell(row, 'название')) + '</h3>' +
-        '<p class="training__text">' + richText(cell(row, 'описание')) + '</p>' +
+        '<h3 class="training__title">' + esc(cell(row, 'title')) + '</h3>' +
+        '<p class="training__text">' + richText(cell(row, 'description')) + '</p>' +
         '</article>';
     }).join('');
 
@@ -440,9 +330,9 @@
     if (!host) return items;
 
     host.innerHTML = items.map(function (row) {
-      var type = cell(row, 'тип');
+      var type = cell(row, 'type');
       var isPlay = type.toLowerCase().indexOf('игров') === 0;
-      var venueKey = cell(row, 'площадка');
+      var venueKey = cell(row, 'venue');
       var venue = venueIndex.byName[venueKey.toLowerCase()];
       var venueTitle = venue ? (venue.fullName || venue.name) : venueKey;
       var venueHtml = esc(venueTitle);
@@ -451,14 +341,14 @@
         venueHtml = '<a class="row__venue-link" href="#' + venue.anchor + '">' + esc(venueTitle) + '</a>';
       }
 
-      var price = formatPrice(cell(row, 'цена'));
+      var price = formatPrice(cell(row, 'price'));
 
       return '<article class="row">' +
-        '<div class="row__day"><span class="row__day-in">' + esc(cell(row, 'день')) + '</span></div>' +
-        '<div class="row__time">' + esc(cell(row, 'время')) + '</div>' +
+        '<div class="row__day"><span class="row__day-in">' + esc(cell(row, 'day')) + '</span></div>' +
+        '<div class="row__time">' + esc(cell(row, 'time')) + '</div>' +
         '<div class="row__meta">' +
           (type ? '<span class="type' + (isPlay ? ' type--play' : '') + '">' + esc(type) + '</span>' : '') +
-          '<span class="levels">' + levelBadges(cell(row, 'уровни')) + '</span>' +
+          '<span class="levels">' + levelBadges(cell(row, 'levels')) + '</span>' +
         '</div>' +
         '<div class="row__venue">' + venueHtml + '</div>' +
         '<div class="row__price">' + (price ? '<span class="price">' + esc(price) + '</span>' : '') + '</div>' +
@@ -475,17 +365,17 @@
     var byName = {};
 
     all.forEach(function (row) {
-      var name = cell(row, 'название');
+      var name = cell(row, 'name');
       if (!name) return;
       byName[name.toLowerCase()] = {
         name: name,
-        fullName: cell(row, 'полное название'),
+        fullName: cell(row, 'full_name'),
         anchor: ''
       };
     });
 
     shown.forEach(function (row, index) {
-      var name = cell(row, 'название');
+      var name = cell(row, 'name');
       var entry = byName[name.toLowerCase()];
       if (entry) entry.anchor = 'venue-' + (index + 1);
     });
@@ -499,18 +389,18 @@
 
     var daysByVenue = {};
     visibleRows(scheduleRows).forEach(function (row) {
-      var key = cell(row, 'площадка').toLowerCase();
-      var short = dayShort(cell(row, 'день'));
+      var key = cell(row, 'venue').toLowerCase();
+      var short = dayShort(cell(row, 'day'));
       if (!key || !short) return;
       if (!daysByVenue[key]) daysByVenue[key] = [];
       if (daysByVenue[key].indexOf(short) === -1) daysByVenue[key].push(short);
     });
 
     host.innerHTML = venueIndex.shown.map(function (row, index) {
-      var name = cell(row, 'название');
-      var fullName = cell(row, 'полное название') || name;
-      var address = cell(row, 'адрес');
-      var map = safeUrl(cell(row, 'ссылка на карту'));
+      var name = cell(row, 'name');
+      var fullName = cell(row, 'full_name') || name;
+      var address = cell(row, 'address');
+      var map = safeUrl(cell(row, 'map_link'));
 
       if (!map && address) {
         map = esc('https://yandex.ru/maps/?text=' + encodeURIComponent(address));
@@ -541,16 +431,16 @@
     if (!host) return;
 
     host.innerHTML = items.map(function (row) {
-      var image = safeUrl(cell(row, 'картинка'));
-      var label = cell(row, 'текст кнопки');
-      var link = safeUrl(cell(row, 'ссылка кнопки')) || telegram;
-      var title = cell(row, 'заголовок');
+      var image = mediaUrl(cell(row, 'image'));
+      var label = cell(row, 'button_label');
+      var link = safeUrl(cell(row, 'button_link')) || telegram;
+      var title = cell(row, 'title');
 
       return '<article class="promo">' +
         (image ? '<div class="promo__media"><img src="' + image + '" alt="' + esc(title) + '" loading="lazy"></div>' : '') +
         '<div class="promo__body">' +
           '<h3 class="promo__title">' + escMultiline(title) + '</h3>' +
-          '<p class="promo__text">' + richText(cell(row, 'текст')) + '</p>' +
+          '<p class="promo__text">' + richText(cell(row, 'text')) + '</p>' +
           (label && link
             ? '<a class="btn btn--accent" href="' + link + '" target="_blank" rel="noopener">' + esc(label) + '</a>'
             : '') +
@@ -567,10 +457,10 @@
     if (!host) return;
 
     host.innerHTML = items.map(function (row) {
-      var poster = safeUrl(cell(row, 'афиша'));
-      var link = safeUrl(cell(row, 'ссылка'));
-      var title = cell(row, 'название');
-      var placeKey = cell(row, 'место');
+      var poster = mediaUrl(cell(row, 'poster'));
+      var link = safeUrl(cell(row, 'link'));
+      var title = cell(row, 'title');
+      var placeKey = cell(row, 'place');
       var venue = venueIndex.byName[placeKey.toLowerCase()];
       var place = venue ? (venue.fullName || venue.name) : placeKey;
 
@@ -579,10 +469,10 @@
         '<div class="tournament__body">' +
           '<h3 class="tournament__title">' + escMultiline(title) + '</h3>' +
           '<p class="tournament__when">' +
-            esc(cell(row, 'даты')) +
+            esc(cell(row, 'dates')) +
             (place ? '<span class="tournament__where">' + esc(place) + '</span>' : '') +
           '</p>' +
-          '<p class="tournament__text">' + richText(cell(row, 'текст')) + '</p>' +
+          '<p class="tournament__text">' + richText(cell(row, 'text')) + '</p>' +
           (link ? '<a class="btn btn--ghost" href="' + link + '" target="_blank" rel="noopener">Подробнее</a>' : '') +
         '</div>' +
         '</article>';
@@ -593,21 +483,21 @@
 
   function renderCoaches(rows) {
     var items = visibleRows(rows).filter(function (row) {
-      return cell(row, 'имя');
+      return cell(row, 'name');
     });
     var host = q('[data-coaches]');
     if (!host) return;
 
     host.innerHTML = items.map(function (row) {
-      var photo = safeUrl(cell(row, 'фото'));
+      var photo = mediaUrl(cell(row, 'photo'));
       var telegram = safeUrl(cell(row, 'telegram'));
-      var name = cell(row, 'имя');
+      var name = cell(row, 'name');
 
       return '<article class="coach">' +
         (photo ? '<div class="coach__media"><img src="' + photo + '" alt="' + esc(name) + '" loading="lazy"></div>' : '') +
         '<div class="coach__body">' +
           '<h3 class="coach__name">' + esc(name) + '</h3>' +
-          '<p class="coach__about">' + escMultiline(cell(row, 'о себе')) + '</p>' +
+          '<p class="coach__about">' + escMultiline(cell(row, 'about')) + '</p>' +
           (telegram ? '<a class="link-accent" href="' + telegram + '" target="_blank" rel="noopener">Написать в Telegram</a>' : '') +
         '</div>' +
         '</article>';
@@ -622,10 +512,10 @@
     if (!host) return;
 
     host.innerHTML = items.map(function (row) {
-      var name = cell(row, 'название');
-      var logo = safeUrl(cell(row, 'логотип'));
-      var link = safeUrl(cell(row, 'ссылка'));
-      var description = cell(row, 'описание');
+      var name = cell(row, 'name');
+      var logo = mediaUrl(cell(row, 'logo'));
+      var link = safeUrl(cell(row, 'link'));
+      var description = cell(row, 'description');
 
       var inner = (logo
         ? '<img class="partner__logo" src="' + logo + '" alt="' + esc(name) + '" loading="lazy">'
@@ -645,13 +535,13 @@
     if (!host) return;
 
     var items = visibleRows(rows).filter(function (row) {
-      return cell(row, 'название') && safeUrl(cell(row, 'ссылка'));
+      return cell(row, 'name') && safeUrl(cell(row, 'link'));
     });
 
     host.innerHTML = items.map(function (row) {
       return '<li class="socials__item">' +
-        '<a class="socials__link" href="' + safeUrl(cell(row, 'ссылка')) + '" target="_blank" rel="noopener">' +
-        esc(cell(row, 'название')) + '</a></li>';
+        '<a class="socials__link" href="' + safeUrl(cell(row, 'link')) + '" target="_blank" rel="noopener">' +
+        esc(cell(row, 'name')) + '</a></li>';
     }).join('');
 
     host.hidden = items.length === 0;
@@ -664,8 +554,8 @@
 
     host.innerHTML = items.map(function (row) {
       return '<details class="qa">' +
-        '<summary class="qa__q">' + esc(cell(row, 'вопрос')) + '</summary>' +
-        '<div class="qa__a">' + richText(cell(row, 'ответ')) + '</div>' +
+        '<summary class="qa__q">' + esc(cell(row, 'question')) + '</summary>' +
+        '<div class="qa__a">' + richText(cell(row, 'answer')) + '</div>' +
         '</details>';
     }).join('');
 
@@ -782,11 +672,11 @@
     var loader = createLoader();
 
     loadContent().then(render).catch(function () {
-      var fallback = {};
-      Object.keys(SHEETS).forEach(function (key) {
-        fallback[key] = defaultRows(SHEETS[key].name);
+      var empty = {};
+      FILES.forEach(function (name) {
+        empty[name] = name === 'settings' ? {} : [];
       });
-      render(fallback);
+      render(empty);
     }).then(loader.done, loader.done);
   }
 
