@@ -869,12 +869,12 @@ a.partner:hover .partner__name { color: var(--acc); }
   text-transform: uppercase;
   font-size: clamp(38px, 12vw, 84px);
   line-height: 0.92;
-  margin: 0 0 14px;
+  margin: 0 0 22px;
 }
 
 .final__text {
   max-width: 44ch;
-  margin: 0 0 24px;
+  margin: 0 0 22px;
   font-weight: 600;
 }
 

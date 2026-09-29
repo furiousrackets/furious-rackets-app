@@ -1,29 +1,3 @@
 {
-  "phone": "+7 (927) 277-63-39",
-  "networks": [
-    {
-      "title": "Telegram",
-      "link": "https://t.me/furiousrackets",
-      "main": true,
-      "signup": true
-    },
-    {
-      "title": "MAX",
-      "link": "https://max.ru/join/C3ikpp-aU9k5lwfw7oN5WKn7QyYBBqK9DBv4X_KK3pk",
-      "main": false,
-      "signup": true
-    },
-    {
-      "title": "ВКонтакте",
-      "link": "https://vk.ru/club236835517",
-      "main": false,
-      "signup": false
-    },
-    {
-      "title": "Instagram",
-      "link": "https://www.instagram.com/furiousrackets",
-      "main": false,
-      "signup": false
-    }
-  ]
+  "phone": "+7 (927) 277-63-39"
 }

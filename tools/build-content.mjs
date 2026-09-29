@@ -4,9 +4,9 @@
 // Что делает по дороге:
 //  • подставляет связанные записи: площадку, вид тренировки и уровни в расписание,
 //    площадку в турнир — как связи между таблицами в базе данных;
-//  • подставляет общие контакты (главную сеть, сети для записи), если в блоке не указан свой;
+//  • подставляет выбранные соцсети и телефон; в блоке свой контакт — только если отличается;
 //  • превращает Markdown из форматированных полей в HTML;
-//  • заменяет {телефон}, {группа}, {уровни} и {Название сети} в текстах.
+//  • заменяет {телефон}, {уровни} и {Название соцсети} в текстах.
 //
 // Запуск: npm run build  (на GitHub это делает workflow перед публикацией)
 
@@ -145,29 +145,25 @@ function makeIndex(items, what) {
 
 /* ---------- общие контакты ---------- */
 
-// Все соцсети и мессенджеры — одним списком. Одна отмечена главной (туда ведут
-// кнопки по умолчанию), через отмеченные «записываются» появляются кнопки записи.
+// Телефон — один на сайт. Соцсети — справочник (название и ссылка); в блоках
+// их выбирают из списка, и они показываются в том порядке, в котором выбраны.
 const general = readObject('general.json');
-const networks = (Array.isArray(general.networks) ? general.networks : [])
-  .filter(isObject)
-  .map((n) => ({ title: str(n.title), link: safeUrl(n.link), main: n.main === true, signup: n.signup === true }))
-  .filter((n) => n.title && n.link);
-
-const mainMarked = networks.filter((n) => n.main);
-const mainNetwork = mainMarked[0] || networks.find((n) => n.signup) || networks[0] || null;
-if (mainMarked.length > 1) warn(`Главными отмечено несколько сетей — используется первая: «${mainNetwork.title}»`);
-if (!mainMarked.length && mainNetwork) warn(`Ни одна сеть не отмечена главной — используется «${mainNetwork.title}»`);
-if (!mainNetwork) warn('В «Контактах и соцсетях» нет ни одной сети — кнопкам записи некуда вести');
-
-const pick = ({ title, link }) => ({ title, link });
 const contacts = {
   phone: str(general.phone),
-  phoneHref: telHref(general.phone),
-  main: mainNetwork ? { ...pick(mainNetwork), handle: telegramHandle(mainNetwork.link) } : null,
-  // в окне «Записаться» и «Группа в …» внизу; главная — первой
-  signup: networks.filter((n) => n.signup).sort((a, b) => (b === mainNetwork) - (a === mainNetwork)).map(pick),
-  socials: networks.filter((n) => !n.signup).map(pick)         // остальные — ссылками внизу страницы
+  phoneHref: telHref(general.phone)
 };
+
+const networks = readCollection('networks')
+  .map((n) => ({ id: n.id, title: str(n.title), link: safeUrl(n.link) }))
+  .filter((n) => n.title && n.link);
+const findNetwork = makeIndex(networks, 'соцсеть');
+
+function pickNetworks(ids, where) {
+  return (Array.isArray(ids) ? ids : [ids])
+    .map((id) => findNetwork(id, where))
+    .filter(Boolean)
+    .map(({ title, link }) => ({ title, link }));
+}
 
 function normName(value) {
   return str(value).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, '');
@@ -205,11 +201,10 @@ function networkLink(network) {
 
 const PLACEHOLDERS = {
   'телефон': () => contacts.phoneHref ? link(contacts.phoneHref, contacts.phone, false) : escapeHtml(contacts.phone),
-  'группа': () => mainNetwork ? networkLink(mainNetwork) : '',
   'уровни': () => levels.map((l) => escapeHtml(l.title)).join(', ')
 };
 
-// {телефон}, {группа}, {уровни} — и любая сеть по названию: {Telegram}, {MAX}, {ВКонтакте}…
+// {телефон}, {уровни} — и любая соцсеть по названию: {Telegram}, {MAX}, {ВКонтакте}…
 function placeholder(name) {
   const key = normName(name);
   if (PLACEHOLDERS[key]) return PLACEHOLDERS[key]();
@@ -363,6 +358,7 @@ const data = {
     // окно «Записаться»: каналы — сети с отметкой в «Контактах и соцсетях» и телефон
     buttonLabel: str(signup.button_label) || 'Записаться на тренировку',
     sheetTitle: str(sheet.title),
+    sheetNetworks: pickNetworks(sheet.networks, 'Окно «Записаться»'),
     sheetText: str(sheet.text),
     sheetNetworkLabel: str(sheet.network_label) || 'Написать в {сеть}',
     sheetPhone: sheet.phone !== false,
@@ -382,7 +378,14 @@ const data = {
     question: str(q.question),
     html: markdown(q.answer, `Вопрос «${str(q.question)}»`)
   })).filter((q) => q.question && q.html),
-  final: { title: str(final.title), text: str(final.text), groupsText: str(final.groups_text) }
+  final: {
+    title: str(final.title),
+    text: str(final.text),
+    groupsText: str(final.groups_text),
+    groups: pickNetworks(final.group_networks, 'Приходи играть, кнопки групп'),
+    groupLabel: str(final.group_label) || 'Группа в {сеть}',
+    links: pickNetworks(final.links, 'Приходи играть, ссылки на соцсети')
+  }
 };
 
 writeFileSync(OUT, JSON.stringify(data) + '\n');

@@ -1,8 +1,8 @@
 # Админка Pages CMS (https://app.pagescms.org) для сайта «Бешеные ракетки».
 #
 # Меню повторяет сайт: «Общее» — то, что используется везде, «Блоки сайта» — по пункту
-# на каждый блок страницы, сверху вниз. Контакты и соцсети заполняются один раз в «Общем»;
-# в блоке свой контакт указывают, только если он отличается (пусто = общий).
+# на каждый блок страницы, сверху вниз. Телефон и список соцсетей заполняются один раз
+# в «Общем»; в блоках соцсети выбираются из этого списка.
 # Площадка, вид тренировки и уровни в расписании выбираются из списка — это записи
 # из «Где играем», «Наших тренировок» и «Уровней игроков» (файлы в content/<папка>/).
 #
@@ -79,40 +79,42 @@ content:
     type: group
     items:
       - name: general
-        label: Контакты и соцсети
+        label: Телефон
         type: file
         path: content/general.json
         format: json
         fields:
           - name: phone
-            label: Телефон
+            label: Номер телефона
             type: string
-          - name: networks
-            label: Соцсети и мессенджеры
-            type: object
-            list:
-              collapsible:
-                collapsed: true
-                summary: "{title}"
-            fields:
-              - name: title
-                label: Название
-                type: string
-                required: true
-              - name: link
-                label: Ссылка
-                type: string
-                required: true
-              - name: main
-                label: Главная
-                type: boolean
-                default: false
-                description: Одна на сайт — первая в окне «Записаться» и в {группа}
-              - name: signup
-                label: Для записи
-                type: boolean
-                default: false
-                description: Показывать в окне «Записаться» и кнопкой внизу страницы. Без отметки — просто ссылка в самом низу.
+            description: В шапке, в окне «Записаться», в блоке «Приходи играть» и вместо {телефон} в текстах
+
+      - name: networks
+        label: Соцсети
+        description: Все соцсети и мессенджеры клуба. Где какие показывать — выбирается в блоках.
+        type: collection
+        path: content/networks
+        format: json
+        filename:
+          template: "{primary}.json"
+          field: false
+        view:
+          primary: title
+          fields: [title, link]
+          sort: [title]
+          default:
+            sort: title
+            order: asc
+        fields:
+          - name: title
+            label: Название
+            type: string
+            required: true
+            description: Так подписывается на сайте, например Telegram
+          - name: link
+            label: Ссылка
+            type: string
+            required: true
 
       - name: levels
         label: Уровни игроков
@@ -307,10 +309,20 @@ content:
               - name: text
                 label: Текст
                 type: string
+              - name: networks
+                label: Соцсети в окне
+                type: reference
+                description: В выбранном порядке, первая — главная (салатовая) кнопка
+                options:
+                  collection: networks
+                  multiple: true
+                  value: "{name}"
+                  label: "{title}"
+                  search: title
               - name: network_label
-                label: Кнопки сетей
+                label: Подпись кнопок соцсетей
                 type: string
-                description: "{сеть} заменится на название: «Написать в {сеть}» → «Написать в Telegram». Какие сети — отметка «Для записи» в «Контактах и соцсетях»."
+                description: "{сеть} заменится на название: «Написать в {сеть}» → «Написать в Telegram»"
               - name: phone
                 label: Показывать телефон
                 type: boolean
@@ -471,7 +483,7 @@ content:
               - name: answer
                 label: Ответ
                 component: rich
-                description: "Подстановки: {телефон}, {группа}, {Telegram}, {MAX}, {уровни}"
+                description: "Подстановки: {телефон}, {уровни} и любая соцсеть по названию, например {Telegram}"
               - name: show
                 component: show
 
@@ -482,11 +494,36 @@ content:
         format: json
         fields:
           - name: title
-            label: Заголовок
+            label: Заголовок блока
             type: string
           - name: text
-            label: Текст
+            label: Текст под заголовком
             type: string
+            description: Под ним — кнопка с номером телефона
           - name: groups_text
-            label: Текст над кнопками
+            label: Текст над кнопками групп
             type: string
+          - name: group_networks
+            label: Кнопки групп
+            type: reference
+            description: Какие соцсети показать большими кнопками, в выбранном порядке
+            options:
+              collection: networks
+              multiple: true
+              value: "{name}"
+              label: "{title}"
+              search: title
+          - name: group_label
+            label: Подпись кнопок групп
+            type: string
+            description: "{сеть} заменится на название: «Группа в {сеть}» → «Группа в Telegram»"
+          - name: links
+            label: Ссылки на соцсети в самом низу
+            type: reference
+            description: Какие соцсети показать строкой ссылок под кнопками
+            options:
+              collection: networks
+              multiple: true
+              value: "{name}"
+              label: "{title}"
+              search: title

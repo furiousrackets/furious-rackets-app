@@ -257,36 +257,43 @@
 
   /* ---------- общие контакты и тексты ---------- */
 
-  // Кнопки «Записаться в …» / «Группа в …» по списку сетей
-  function networkButtons(selector, links, prefix, firstClass, restClass) {
-    var host = q(selector);
-    if (!host) return 0;
-    var items = list(links).filter(function (l) { return str(l.title) && safeUrl(l.link); });
-    host.innerHTML = items.map(function (l, index) {
-      return '<a class="btn ' + (index === 0 ? firstClass : restClass) + '" href="' + safeUrl(l.link) + '"' + blank(l.link) + '>' +
-        esc(prefix + ' ' + l.title) + '</a>';
-    }).join('');
-    host.hidden = items.length === 0;
-    return items.length;
+  // «Написать в {сеть}» → «Написать в Telegram»; без {сеть} название добавляется в конец
+  function networkLabel(template, name) {
+    var text = str(template);
+    return text.indexOf('{сеть}') !== -1 ? text.split('{сеть}').join(name) : (text ? text + ' ' : '') + name;
+  }
+
+  function validNetworks(items) {
+    return list(items).filter(function (n) { return str(n.title) && safeUrl(n.link); });
   }
 
   function applyContacts(contacts) {
     setLink('[data-phone-link]', contacts.phoneHref);
-    networkButtons('[data-group-buttons]', contacts.signup, 'Группа в', 'btn--outline-dark', 'btn--outline-dark');
-
     qa('[data-phone-text]').forEach(function (node) {
       node.textContent = str(contacts.phone);
     });
+  }
+
+  // «Приходи играть»: кнопки групп и ссылки на соцсети — те, что выбраны в админке
+  function renderFinalNetworks(final) {
+    var groups = validNetworks(final.groups);
+    var host = q('[data-group-buttons]');
+    if (host) {
+      host.innerHTML = groups.map(function (n) {
+        return '<a class="btn btn--outline-dark" href="' + safeUrl(n.link) + '"' + blank(n.link) + '>' +
+          esc(networkLabel(final.groupLabel || 'Группа в {сеть}', str(n.title))) + '</a>';
+      }).join('');
+    }
+    qa('.final__tg').forEach(function (node) { node.hidden = groups.length === 0; });
+
+    var links = validNetworks(final.links);
     var socials = q('[data-socials]');
     if (socials) {
-      var items = list(contacts.socials).filter(function (s) {
-        return str(s.title) && safeUrl(s.link);
-      });
-      socials.innerHTML = items.map(function (s) {
-        return '<li class="socials__item"><a class="socials__link" href="' + safeUrl(s.link) + '"' + blank(s.link) + '>' +
-          esc(s.title) + '</a></li>';
+      socials.innerHTML = links.map(function (n) {
+        return '<li class="socials__item"><a class="socials__link" href="' + safeUrl(n.link) + '"' + blank(n.link) + '>' +
+          esc(n.title) + '</a></li>';
       }).join('');
-      socials.hidden = items.length === 0;
+      socials.hidden = links.length === 0;
     }
   }
 
@@ -300,6 +307,7 @@
     setText('[data-final-title]', final.title);
     setText('[data-final-text]', final.text);
     setText('[data-final-groups-text]', final.groupsText);
+    renderFinalNetworks(final);
   }
 
   /* ---------- блоки ---------- */
@@ -535,21 +543,13 @@
     fill: function (contacts, texts) {
       var host = q('[data-sheet-actions]');
       if (!host) return;
-      var networkLabel = str(texts.sheetNetworkLabel) || 'Написать в {сеть}';
+      var label = str(texts.sheetNetworkLabel) || 'Написать в {сеть}';
       var phoneLabel = str(texts.sheetPhoneLabel) || 'Позвонить';
 
-      // «Написать в {сеть}» → «Написать в Telegram»; без {сеть} название добавляется в конец
-      function labelFor(name) {
-        return networkLabel.indexOf('{сеть}') !== -1
-          ? networkLabel.split('{сеть}').join(name)
-          : networkLabel + ' ' + name;
-      }
-
-      var html = list(contacts.signup).filter(function (n) {
-        return str(n.title) && safeUrl(n.link);
-      }).map(function (n, index) {
+      // соцсети, выбранные для окна, в выбранном порядке; первая — главная кнопка
+      var html = validNetworks(texts.sheetNetworks).map(function (n, index) {
         return '<a class="btn ' + (index === 0 ? 'btn--accent' : 'btn--ghost') + '" href="' + safeUrl(n.link) + '"' + blank(n.link) + '>' +
-          esc(labelFor(str(n.title))) + '</a>';
+          esc(networkLabel(label, str(n.title))) + '</a>';
       });
       if (texts.sheetPhone !== false && safeUrl(contacts.phoneHref)) {
         html.push('<a class="btn ' + (html.length ? 'btn--ghost' : 'btn--accent') + '" href="' + safeUrl(contacts.phoneHref) + '">' +
