@@ -257,10 +257,24 @@
 
   /* ---------- общие контакты и тексты ---------- */
 
+  // Кнопки «Записаться в …» / «Группа в …» по списку сетей
+  function networkButtons(selector, links, prefix, firstClass, restClass) {
+    var host = q(selector);
+    if (!host) return 0;
+    var items = list(links).filter(function (l) { return str(l.title) && safeUrl(l.link); });
+    host.innerHTML = items.map(function (l, index) {
+      return '<a class="btn ' + (index === 0 ? firstClass : restClass) + '" href="' + safeUrl(l.link) + '"' + blank(l.link) + '>' +
+        esc(prefix + ' ' + l.title) + '</a>';
+    }).join('');
+    host.hidden = items.length === 0;
+    return items.length;
+  }
+
   function applyContacts(contacts) {
-    setLink('[data-tg-link]', contacts.telegram);
-    setLink('[data-max-link]', contacts.max);
+    var main = contacts.main || {};
+    setLink('[data-main-link]', main.link);
     setLink('[data-phone-link]', contacts.phoneHref);
+    networkButtons('[data-group-buttons]', contacts.signup, 'Группа в', 'btn--outline-dark', 'btn--outline-dark');
 
     qa('[data-phone-text]').forEach(function (node) {
       node.textContent = str(contacts.phone);
@@ -270,7 +284,7 @@
       node.hidden = !str(contacts.phoneNote);
     });
     qa('.tournaments__more').forEach(function (node) {
-      node.hidden = !safeUrl(contacts.telegram);
+      node.hidden = !safeUrl(main.link);
     });
 
     var socials = q('[data-socials]');
@@ -388,9 +402,8 @@
     }
     setText('[data-signup-title]', data.title);
 
-    // Кнопки записи: свой контакт блока или общий (это решает сборка)
-    setLink('[data-signup-tg]', data.telegram);
-    setLink('[data-signup-max]', data.max);
+    // Кнопки записи: свои кнопки блока или общие сети для записи (это решает сборка)
+    networkButtons('[data-signup-actions]', data.links, 'Записаться в', 'btn--accent', 'btn--ghost');
 
     // Кнопка «Записаться» в шапке ведёт к этому блоку, если он показан
     qa('[data-signup-cta]').forEach(function (node) {
@@ -447,66 +460,45 @@
     reveal('coach', items.length > 0);
   }
 
-  function renderPromos(all) {
-    var items = all.filter(isActual);
-    var host = q('[data-promos]');
+  // Акции и турниры — одинаковые карточки: картинка, заголовок, когда/где, текст, кнопка
+  function renderCards(prefix, items, sectionId) {
+    var host = q('[data-' + sectionId + ']');
     if (!host) return;
     var fill = needsPlaceholder(items, 'image');
+    var buttonClass = prefix === 'promo' ? 'btn--accent' : 'btn--ghost';
 
-    host.innerHTML = items.map(function (p) {
-      var link = safeUrl(p.buttonLink);
-      var hasMedia = safeUrl(p.image) || fill;
-      return '<article class="promo' + (hasMedia ? '' : ' is-textonly') + '">' +
-        media('promo', p.image, p.title, fill) +
-        '<div class="promo__body">' +
-          '<h3 class="promo__title">' + escMultiline(p.title) + '</h3>' +
-          (str(p.html) ? '<div class="promo__text rich">' + richHtml(p.html) + '</div>' : '') +
-          (str(p.buttonLabel) && link
-            ? '<a class="btn btn--accent" href="' + link + '"' + blank(p.buttonLink) + '>' + esc(p.buttonLabel) + '</a>'
+    host.innerHTML = items.map(function (c) {
+      var link = safeUrl(c.buttonLink);
+      var hasMedia = safeUrl(c.image) || fill;
+      var place = '';
+      if (str(c.place)) {
+        place = c.placeAnchor
+          ? '<a class="card__where row__venue-link" href="#' + esc(c.placeAnchor) + '">' + esc(c.place) + '</a>'
+          : '<span class="card__where">' + esc(c.place) + '</span>';
+      }
+      return '<article class="' + prefix + (hasMedia ? '' : ' is-textonly') + '">' +
+        media(prefix, c.image, c.title, fill) +
+        '<div class="' + prefix + '__body">' +
+          '<h3 class="' + prefix + '__title">' + escMultiline(c.title) + '</h3>' +
+          ((str(c.when) || place) ? '<p class="card__when">' + esc(c.when) + place + '</p>' : '') +
+          (str(c.html) ? '<div class="' + prefix + '__text rich">' + richHtml(c.html) + '</div>' : '') +
+          (str(c.buttonLabel) && link
+            ? '<a class="btn ' + buttonClass + '" href="' + link + '"' + blank(c.buttonLink) + '>' + esc(c.buttonLabel) + '</a>'
             : '') +
         '</div>' +
         '</article>';
     }).join('');
 
     layoutGrid(host, items.length, 3);
-    reveal('promos', items.length > 0);
+    reveal(sectionId, items.length > 0);
   }
 
-  function renderTournaments(block) {
-    var data = block || {};
-    var items = list(data.items).filter(isActual);
-    var host = q('[data-tournaments]');
-    if (!host) return;
-    var fill = needsPlaceholder(items, 'poster');
+  function renderPromos(all) {
+    renderCards('promo', all.filter(isActual), 'promos');
+  }
 
-    host.innerHTML = items.map(function (t) {
-      var link = safeUrl(t.link);
-      var hasMedia = safeUrl(t.poster) || fill;
-      var place = '';
-      if (str(t.place)) {
-        place = t.placeAnchor
-          ? '<a class="tournament__where row__venue-link" href="#' + esc(t.placeAnchor) + '">' + esc(t.place) + '</a>'
-          : '<span class="tournament__where">' + esc(t.place) + '</span>';
-      }
-      return '<article class="tournament' + (hasMedia ? '' : ' is-textonly') + '">' +
-        media('tournament', t.poster, t.title, fill) +
-        '<div class="tournament__body">' +
-          '<h3 class="tournament__title">' + escMultiline(t.title) + '</h3>' +
-          ((str(t.dates) || place) ? '<p class="tournament__when">' + esc(t.dates) + place + '</p>' : '') +
-          (str(t.html) ? '<div class="tournament__text rich">' + richHtml(t.html) + '</div>' : '') +
-          (link ? '<a class="btn btn--ghost" href="' + link + '"' + blank(t.link) + '>Подробнее</a>' : '') +
-        '</div>' +
-        '</article>';
-    }).join('');
-
-    var intro = q('[data-tournaments-intro]');
-    if (intro) {
-      intro.innerHTML = richHtml(data.introHtml);
-      intro.hidden = !str(data.introHtml);
-    }
-
-    layoutGrid(host, items.length, 3);
-    reveal('tournaments', items.length > 0);
+  function renderTournaments(all) {
+    renderCards('tournament', all.filter(isActual), 'tournaments');
   }
 
   function renderPartners(items) {
@@ -637,7 +629,7 @@
     renderVenues(list(data.venues));
     renderCoaches(list(data.coaches));
     renderPromos(list(data.promos));
-    renderTournaments(data.tournaments);
+    renderTournaments(list(data.tournaments));
     renderPartners(list(data.partners));
     renderFaq(list(data.faq));
 

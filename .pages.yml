@@ -1,15 +1,13 @@
 # Админка Pages CMS (https://app.pagescms.org) для сайта «Бешеные ракетки».
 #
-# Как устроены данные:
-#  • «Контакты и соцсети» — общие данные для всего сайта. В блоках контакт заполняют,
-#    только если он отличается от общего; пустое поле = общий контакт.
-#  • «Справочники» — таблицы, на которые ссылаются другие разделы: вид тренировки,
-#    площадка и уровни в расписании выбираются из списка, а не пишутся руками.
-#    Каждая запись справочника — отдельный файл в content/<папка>/.
-#  • Поля с форматированием (жирный, списки, ссылки) сохраняются в Markdown.
+# Меню повторяет сайт: «Общее» — то, что используется везде, «Блоки сайта» — по пункту
+# на каждый блок страницы, сверху вниз. Контакты и соцсети заполняются один раз в «Общем»;
+# в блоке свой контакт указывают, только если он отличается (пусто = общий).
+# Площадка, вид тренировки и уровни в расписании выбираются из списка — это записи
+# из «Где играем», «Наших тренировок» и «Уровней игроков» (файлы в content/<папка>/).
 #
-# name — ключ в файлах content/, его не менять: по нему сайт находит данные
-# (см. tools/build-content.mjs). label — подпись, которую видит админ.
+# name — ключ в файлах content/, его не менять (см. tools/build-content.mjs).
+# label — подпись для админа.
 
 media:
   input: site/media
@@ -23,223 +21,154 @@ components:
     type: boolean
     default: true
   order:
-    label: Порядок на сайте
+    label: Порядок
     type: number
-    description: Меньше число — раньше на сайте. Удобно ставить 10, 20, 30 — тогда новую запись можно вставить между ними.
+    description: Меньше — выше
   rich:
     type: rich-text
-    description: "Можно выделять жирным, делать списки и ссылки. Подстановки: {телефон}, {группа}, {max} — станут ссылками на общие контакты."
     options:
       media: false
-  until:
-    label: Показывать до (включительно)
-    type: date
-    default: ""
-    description: На следующий день запись сама исчезнет с сайта. Пусто — бессрочно.
+  # Карточка акции или турнира — поля одинаковые
+  card:
+    type: object
+    fields:
+      - name: title
+        label: Заголовок
+        type: string
+        required: true
+      - name: when
+        label: Когда
+        type: string
+      - name: venue
+        label: Площадка
+        type: reference
+        options:
+          collection: venues
+          value: "{name}"
+          label: "{title}"
+          search: title
+      - name: place
+        label: Другое место
+        type: string
+        description: Если его нет в «Где играем»
+      - name: text
+        label: Текст
+        component: rich
+      - name: image
+        label: Картинка
+        type: image
+      - name: button_label
+        label: Текст кнопки
+        type: string
+        description: Пусто — без кнопки
+      - name: button_link
+        label: Своя ссылка кнопки
+        type: string
+        description: Пусто — главная сеть
+      - name: until
+        label: Показывать до
+        type: date
+        default: ""
+        description: Пусто — всегда
+      - name: show
+        component: show
 
 content:
-  - name: general
-    label: Контакты и соцсети
-    description: Общие контакты для всего сайта
-    type: file
-    path: content/general.json
-    format: json
-    fields:
-      - name: phone
-        label: Телефон для записи
-        type: string
-        description: На кнопках «Позвонить» и вместо {телефон} в текстах
-      - name: phone_note
-        label: Подпись под телефоном
-        type: string
-        description: Кто возьмёт трубку. Пусто — подписи не будет.
-      - name: telegram
-        label: Группа в Telegram
-        type: string
-        description: Ссылка вида https://t.me/… — сюда ведут кнопки записи, если в блоке не указана своя ссылка
-      - name: max
-        label: Группа в MAX
-        type: string
-        description: Ссылка на чат в MAX. Пусто — кнопок MAX не будет.
-      - name: socials
-        label: Соцсети (внизу страницы)
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: "{title}"
+  - name: common
+    label: Общее
+    type: group
+    items:
+      - name: general
+        label: Контакты и соцсети
+        type: file
+        path: content/general.json
+        format: json
+        fields:
+          - name: phone
+            label: Телефон
+            type: string
+          - name: phone_note
+            label: Кто отвечает на звонки
+            type: string
+          - name: networks
+            label: Соцсети и мессенджеры
+            type: object
+            list:
+              collapsible:
+                collapsed: true
+                summary: "{title}"
+            fields:
+              - name: title
+                label: Название
+                type: string
+                required: true
+              - name: link
+                label: Ссылка
+                type: string
+                required: true
+              - name: main
+                label: Главная
+                type: boolean
+                default: false
+                description: Одна на сайт — сюда ведут кнопки по умолчанию
+              - name: signup
+                label: Кнопка «Записаться»
+                type: boolean
+                default: false
+                description: В «Как записаться» и внизу страницы. Без отметки — просто ссылка внизу.
+
+      - name: levels
+        label: Уровни игроков
+        type: collection
+        path: content/levels
+        format: json
+        filename:
+          template: "{primary}.json"
+          field: false
+        view:
+          primary: title
+          fields: [title, description, order]
+          sort: [order, title]
+          default:
+            sort: order
+            order: asc
         fields:
           - name: title
-            label: Название
+            label: Уровень
             type: string
             required: true
-          - name: link
-            label: Ссылка
+          - name: description
+            label: Описание
             type: string
-            required: true
-
-  - name: schedule
-    label: Расписание
-    description: Строки сами сортируются на сайте по дню недели и времени
-    type: file
-    path: content/schedule.json
-    format: json
-    fields:
-      - name: items
-        label: false
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: "{day}, {time}"
-        fields:
-          - name: day
-            label: День недели
-            type: select
-            required: true
-            options:
-              values: [Понедельник, Вторник, Среда, Четверг, Пятница, Суббота, Воскресенье]
-          - name: time
-            label: Время
-            type: string
-            required: true
-            pattern:
-              regex: "^\\s*\\d{1,2}:\\d{2}\\s*[–—-]\\s*\\d{1,2}:\\d{2}\\s*$"
-              message: "Время в виде 20:30–22:00"
-          - name: type
-            label: Вид тренировки
-            type: reference
-            required: true
-            description: Список — из справочника «Виды тренировок»
-            options:
-              collection: training_types
-              value: "{name}"
-              label: "{title}"
-              search: title
-          - name: venue
-            label: Площадка
-            type: reference
-            required: true
-            description: Список — из справочника «Площадки»
-            options:
-              collection: venues
-              value: "{name}"
-              label: "{title}"
-              search: title
-          - name: levels
-            label: Уровни
-            type: reference
-            description: Ничего не выбрано — на сайте будет «все уровни». Список — из справочника «Уровни игроков».
-            options:
-              collection: levels
-              multiple: true
-              value: "{name}"
-              label: "{title}"
-              search: title
-          - name: price
-            label: Цена, ₽
+            description: Подсказка в расписании и строка в списке {уровни}
+          - name: order
+            label: Порядок
             type: number
-            description: Заполняйте, только если цена отличается от цены площадки. Пусто — цена из справочника «Площадки».
-          - name: show
-            component: show
+            description: От новичков к сильным
 
-  - name: promos
-    label: Акции
-    type: file
-    path: content/promos.json
-    format: json
-    fields:
-      - name: items
-        label: false
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: "{title}"
+  - name: page
+    label: Блоки сайта
+    type: group
+    items:
+      - name: hero
+        label: Главный экран
+        type: file
+        path: content/hero.json
+        format: json
         fields:
           - name: title
             label: Заголовок
             type: string
             required: true
+          - name: slogan
+            label: Слоган
+            type: string
           - name: text
             label: Текст
-            component: rich
-          - name: image
-            label: Картинка
-            type: image
-          - name: button_label
-            label: Текст кнопки
-            type: string
-            description: Пусто — кнопки не будет
-          - name: button_link
-            label: Своя ссылка кнопки
-            type: string
-            description: Заполняйте, только если кнопка ведёт не в общую группу Telegram
-          - name: until
-            component: until
-          - name: show
-            component: show
+            type: text
 
-  - name: tournaments
-    label: Турниры
-    type: file
-    path: content/tournaments.json
-    format: json
-    fields:
-      - name: intro
-        label: Вступление к блоку «Турниры»
-        component: rich
-      - name: items
-        label: Турниры
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: "{title}"
-        fields:
-          - name: title
-            label: Название
-            type: string
-            required: true
-          - name: dates
-            label: Когда
-            type: string
-            description: Например 26–27 сентября, 18:00–22:00
-          - name: venue
-            label: Площадка
-            type: reference
-            description: Из справочника «Площадки». Если турнир в другом месте — оставьте пустым и заполните «Другое место».
-            options:
-              collection: venues
-              value: "{name}"
-              label: "{title}"
-              search: title
-          - name: place
-            label: Другое место
-            type: string
-            description: Только если площадки нет в справочнике
-          - name: text
-            label: Описание
-            component: rich
-          - name: poster
-            label: Афиша
-            type: image
-          - name: link
-            label: Ссылка «Подробнее»
-            type: string
-            description: Пусто — кнопки не будет
-          - name: until
-            component: until
-          - name: show
-            component: show
-
-  - name: dictionaries
-    label: Справочники
-    type: group
-    items:
       - name: training_types
-        label: Виды тренировок
-        description: Показываются в блоке «Наши тренировки» и выбираются в расписании
+        label: Наши тренировки
         type: collection
         path: content/training-types
         format: json
@@ -262,21 +191,132 @@ content:
             label: Описание
             component: rich
           - name: highlight
-            label: Выделять в расписании салатовым
+            label: Выделять в расписании
             type: boolean
             default: false
           - name: contact
             label: Свой контакт для записи
             type: string
-            description: Заполняйте, только если на этот вид записываются не через общие контакты — например, на персональную к тренеру (https://t.me/…). Тогда в карточке появится ссылка «Записаться».
+            description: Только если не общий — например, тренер для персональной
           - name: order
             component: order
           - name: show
             component: show
 
+      - name: schedule
+        label: Расписание
+        type: file
+        path: content/schedule.json
+        format: json
+        fields:
+          - name: items
+            label: false
+            type: object
+            list:
+              collapsible:
+                collapsed: true
+                summary: "{day}, {time}"
+            fields:
+              - name: day
+                label: День
+                type: select
+                required: true
+                options:
+                  values: [Понедельник, Вторник, Среда, Четверг, Пятница, Суббота, Воскресенье]
+              - name: time
+                label: Время
+                type: string
+                required: true
+                pattern:
+                  regex: "^\\s*\\d{1,2}:\\d{2}\\s*[–—-]\\s*\\d{1,2}:\\d{2}\\s*$"
+                  message: "Например 20:30–22:00"
+              - name: type
+                label: Тренировка
+                type: reference
+                required: true
+                options:
+                  collection: training_types
+                  value: "{name}"
+                  label: "{title}"
+                  search: title
+              - name: venue
+                label: Площадка
+                type: reference
+                required: true
+                options:
+                  collection: venues
+                  value: "{name}"
+                  label: "{title}"
+                  search: title
+              - name: levels
+                label: Уровни
+                type: reference
+                description: Пусто — «все уровни»
+                options:
+                  collection: levels
+                  multiple: true
+                  value: "{name}"
+                  label: "{title}"
+                  search: title
+              - name: price
+                label: Цена, ₽
+                type: number
+                description: Пусто — цена площадки
+              - name: show
+                component: show
+
+      - name: signup
+        label: Как записаться
+        type: file
+        path: content/signup.json
+        format: json
+        fields:
+          - name: show
+            label: Показывать блок
+            type: boolean
+            default: true
+          - name: eyebrow
+            label: Надзаголовок
+            type: string
+          - name: title
+            label: Заголовок
+            type: string
+            required: true
+          - name: steps
+            label: Шаги
+            type: object
+            list:
+              collapsible:
+                collapsed: true
+                summary: "{index}. {title}"
+            fields:
+              - name: title
+                label: Заголовок
+                type: string
+                required: true
+              - name: text
+                label: Текст
+                component: rich
+          - name: links
+            label: Свои кнопки записи
+            description: Пусто — из «Контактов и соцсетей»
+            type: object
+            list:
+              collapsible:
+                collapsed: true
+                summary: "{title}"
+            fields:
+              - name: title
+                label: Куда записываться
+                type: string
+                required: true
+              - name: link
+                label: Ссылка
+                type: string
+                required: true
+
       - name: venues
-        label: Площадки
-        description: Показываются в блоке «Где играем» и выбираются в расписании и турнирах
+        label: Где играем
         type: collection
         path: content/venues
         format: json
@@ -295,57 +335,23 @@ content:
             label: Короткое название
             type: string
             required: true
-            description: Так площадка называется в списках админки, например СГМУ
           - name: full_name
             label: Полное название
             type: string
-            description: Так она называется на сайте. Пусто — короткое название.
           - name: address
             label: Адрес
             type: string
           - name: price
             label: Цена тренировки, ₽
             type: number
-            description: Цена по умолчанию для всех тренировок на этой площадке
           - name: map_link
             label: Своя ссылка на карту
             type: string
-            description: Можно не заполнять — сайт сам построит ссылку на Яндекс Карты по адресу
+            description: Пусто — Яндекс Карты по адресу
           - name: order
             component: order
           - name: show
             component: show
-
-      - name: levels
-        label: Уровни игроков
-        description: Выбираются в расписании; список с описаниями подставляется вместо {уровни}
-        type: collection
-        path: content/levels
-        format: json
-        filename:
-          template: "{primary}.json"
-          field: false
-        view:
-          primary: title
-          fields: [title, description, order]
-          sort: [order, title]
-          default:
-            sort: order
-            order: asc
-        fields:
-          - name: title
-            label: Обозначение
-            type: string
-            required: true
-            description: Например C+
-          - name: description
-            label: Кто это
-            type: string
-            description: Подсказка при наведении в расписании и строка в списке {уровни}. Пусто — уровень не попадёт в этот список.
-          - name: order
-            label: Порядок
-            type: number
-            description: От новичков к сильным — 10, 20, 30…
 
       - name: coaches
         label: Тренеры
@@ -374,77 +380,40 @@ content:
             label: О себе
             component: rich
           - name: telegram
-            label: Telegram тренера
+            label: Telegram
             type: string
-            description: Ссылка вида https://t.me/… Пусто — кнопки «Написать» не будет.
           - name: order
             component: order
           - name: show
             component: show
 
-  - name: blocks
-    label: Остальные блоки
-    type: group
-    items:
-      - name: hero
-        label: Главный экран
+      - name: promos
+        label: Акции
         type: file
-        path: content/hero.json
+        path: content/promos.json
         format: json
         fields:
-          - name: title
-            label: Заголовок
-            type: string
-            required: true
-          - name: slogan
-            label: Слоган на салатовой плашке
-            type: string
-          - name: text
-            label: Текст под заголовком
-            type: text
-
-      - name: signup
-        label: Как записаться
-        type: file
-        path: content/signup.json
-        format: json
-        fields:
-          - name: show
-            label: Показывать блок на сайте
-            type: boolean
-            default: true
-          - name: eyebrow
-            label: Надзаголовок
-            type: string
-            description: Маленькая зелёная строка над заголовком. Пусто — не показывается.
-          - name: title
-            label: Заголовок
-            type: string
-            required: true
-          - name: steps
-            label: Шаги
-            description: Номера (1, 2, 3…) сайт ставит сам по порядку
-            type: object
+          - name: items
+            label: false
+            component: card
             list:
               collapsible:
                 collapsed: true
-                summary: "{index}. {title}"
-            fields:
-              - name: title
-                label: Заголовок шага
-                type: string
-                required: true
-              - name: text
-                label: Текст
-                component: rich
-          - name: telegram
-            label: Своя ссылка Telegram для записи
-            type: string
-            description: Заполняйте, только если записываются не в общую группу. Пусто — из «Контактов».
-          - name: max
-            label: Своя ссылка MAX для записи
-            type: string
-            description: Заполняйте, только если записываются не в общую группу MAX. Пусто — из «Контактов».
+                summary: "{title}"
+
+      - name: tournaments
+        label: Турниры
+        type: file
+        path: content/tournaments.json
+        format: json
+        fields:
+          - name: items
+            label: false
+            component: card
+            list:
+              collapsible:
+                collapsed: true
+                summary: "{title}"
 
       - name: partners
         label: Партнёры
@@ -470,7 +439,6 @@ content:
               - name: logo
                 label: Логотип
                 type: image
-                description: Без логотипа на сайте будет название текстом
               - name: link
                 label: Ссылка
                 type: string
@@ -478,7 +446,7 @@ content:
                 component: show
 
       - name: faq
-        label: Вопросы и ответы
+        label: Частые вопросы
         type: file
         path: content/faq.json
         format: json
@@ -498,12 +466,12 @@ content:
               - name: answer
                 label: Ответ
                 component: rich
-                description: "Жирный, списки, ссылки. Подстановки: {телефон}, {группа}, {max}; {уровни} отдельной строкой — список уровней из справочника."
+                description: "Подстановки: {телефон}, {группа}, {Telegram}, {MAX}, {уровни}"
               - name: show
                 component: show
 
       - name: final
-        label: Приходи играть (контакты внизу)
+        label: Приходи играть
         type: file
         path: content/final.json
         format: json
@@ -512,8 +480,8 @@ content:
             label: Заголовок
             type: string
           - name: text
-            label: Текст под заголовком
+            label: Текст
             type: string
           - name: groups_text
-            label: Текст над кнопками групп
+            label: Текст над кнопками
             type: string

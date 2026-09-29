@@ -4,9 +4,9 @@
 // Что делает по дороге:
 //  • подставляет связанные записи: площадку, вид тренировки и уровни в расписание,
 //    площадку в турнир — как связи между таблицами в базе данных;
-//  • подставляет общие контакты, если в блоке не указан свой;
+//  • подставляет общие контакты (главную сеть, сети для записи), если в блоке не указан свой;
 //  • превращает Markdown из форматированных полей в HTML;
-//  • заменяет {телефон}, {группа}, {max} и {уровни} в текстах.
+//  • заменяет {телефон}, {группа}, {уровни} и {Название сети} в текстах.
 //
 // Запуск: npm run build  (на GitHub это делает workflow перед публикацией)
 
@@ -152,20 +152,34 @@ function makeIndex(items, what) {
 
 /* ---------- общие контакты ---------- */
 
+// Все соцсети и мессенджеры — одним списком. Одна отмечена главной (туда ведут
+// кнопки по умолчанию), через отмеченные «записываются» появляются кнопки записи.
 const general = readObject('general.json');
+const networks = (Array.isArray(general.networks) ? general.networks : [])
+  .filter(isObject)
+  .map((n) => ({ title: str(n.title), link: safeUrl(n.link), main: n.main === true, signup: n.signup === true }))
+  .filter((n) => n.title && n.link);
+
+const mainMarked = networks.filter((n) => n.main);
+const mainNetwork = mainMarked[0] || networks.find((n) => n.signup) || networks[0] || null;
+if (mainMarked.length > 1) warn(`Главными отмечено несколько сетей — используется первая: «${mainNetwork.title}»`);
+if (!mainMarked.length && mainNetwork) warn(`Ни одна сеть не отмечена главной — используется «${mainNetwork.title}»`);
+if (!mainNetwork) warn('В «Контактах и соцсетях» нет ни одной сети — кнопкам записи некуда вести');
+
+const pick = ({ title, link }) => ({ title, link });
 const contacts = {
   phone: str(general.phone),
   phoneHref: telHref(general.phone),
   phoneNote: str(general.phone_note),
-  telegram: safeUrl(general.telegram),
-  telegramHandle: telegramHandle(general.telegram),
-  max: safeUrl(general.max),
-  socials: (Array.isArray(general.socials) ? general.socials : [])
-    .filter(isObject)
-    .map((s) => ({ title: str(s.title), link: safeUrl(s.link) }))
-    .filter((s) => s.title && s.link)
+  main: mainNetwork ? { ...pick(mainNetwork), handle: telegramHandle(mainNetwork.link) } : null,
+  signup: networks.filter((n) => n.signup).map(pick),          // кнопки «Записаться в …» / «Группа в …»
+  socials: networks.filter((n) => !n.signup).map(pick)         // остальные — ссылками внизу страницы
 };
-if (!contacts.telegram) warn('В «Контактах» не указана группа в Telegram — кнопки записи будут вести в никуда');
+const mainLink = contacts.main ? contacts.main.link : '';
+
+function normName(value) {
+  return str(value).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, '');
+}
 
 /* ---------- справочники ---------- */
 
@@ -193,13 +207,23 @@ function levelsListHtml() {
     `<li><strong>${escapeHtml(l.title)}</strong> — ${escapeHtml(l.description)}</li>`).join('') + '</ul>';
 }
 
+function networkLink(network) {
+  return link(network.link, telegramHandle(network.link) || network.title, true);
+}
+
 const PLACEHOLDERS = {
   'телефон': () => contacts.phoneHref ? link(contacts.phoneHref, contacts.phone, false) : escapeHtml(contacts.phone),
-  'группа': () => contacts.telegram ? link(contacts.telegram, contacts.telegramHandle || 'в Telegram', true) : '',
-  'telegram': () => PLACEHOLDERS['группа'](),
-  'max': () => contacts.max ? link(contacts.max, 'MAX', true) : '',
+  'группа': () => mainNetwork ? networkLink(mainNetwork) : '',
   'уровни': () => levels.map((l) => escapeHtml(l.title)).join(', ')
 };
+
+// {телефон}, {группа}, {уровни} — и любая сеть по названию: {Telegram}, {MAX}, {ВКонтакте}…
+function placeholder(name) {
+  const key = normName(name);
+  if (PLACEHOLDERS[key]) return PLACEHOLDERS[key]();
+  const network = networks.find((n) => normName(n.title) === key);
+  return network ? networkLink(network) : null;
+}
 
 function markdown(value, where) {
   const source = str(value);
@@ -207,9 +231,9 @@ function markdown(value, where) {
   let html = marked.parse(source);
   // {уровни} отдельным абзацем превращается в список уровней с описаниями
   html = html.replace(/<p>\s*\{уровни\}\s*<\/p>/g, () => levelsListHtml());
-  html = html.replace(/\{([a-zа-яё]+)\}/gi, (match, name) => {
-    const fn = PLACEHOLDERS[name.toLowerCase()];
-    if (fn) return fn();
+  html = html.replace(/\{([^{}<>\n]{1,40})\}/g, (match, name) => {
+    const result = placeholder(name);
+    if (result !== null) return result;
     warn(`${where}: неизвестная подстановка ${match} — оставлена как есть`);
     return match;
   });
@@ -309,7 +333,33 @@ const trainings = trainingTypes.filter(isShown).map((t) => {
 const hero = readObject('hero.json');
 const signup = readObject('signup.json');
 const final = readObject('final.json');
-const tournamentsFile = readObject('tournaments.json');
+
+// Свои кнопки записи блока, если заполнены, иначе — сети с отметкой «через неё записываются»
+const signupOwn = (Array.isArray(signup.links) ? signup.links : []).filter(isObject)
+  .map((l) => ({ title: str(l.title), link: safeUrl(l.link) }))
+  .filter((l) => l.title && l.link);
+
+// Акции и турниры — разные списки, но карточки у них одинаковые
+function cards(file, section) {
+  return readList(file).filter(isShown).map((e) => {
+    const title = str(e.title);
+    const where = `${section}, «${title}»`;
+    const ref = venueRef(findVenue(e.venue, where));
+    const ownLink = safeUrl(e.button_link);
+    const label = str(e.button_label) || (ownLink ? 'Подробнее' : '');
+    return {
+      title,
+      when: str(e.when),
+      place: ref ? ref.title : str(e.place),
+      placeAnchor: ref ? ref.anchor : '',
+      html: markdown(e.text, where),
+      image: mediaUrl(e.image),
+      buttonLabel: label,
+      buttonLink: label ? (ownLink || mainLink) : '',   // своя ссылка или главная сеть
+      until: parseDate(e.until)
+    };
+  }).filter((e) => e.title);
+}
 
 const data = {
   contacts,
@@ -324,37 +374,13 @@ const data = {
       title: str(s.title),
       html: markdown(s.text, `Как записаться, шаг ${i + 1}`)
     })).filter((s) => s.title || s.html),
-    // свой контакт блока, если указан, иначе общий
-    telegram: safeUrl(signup.telegram) || contacts.telegram,
-    max: safeUrl(signup.max) || contacts.max
+    // свои кнопки блока, если заполнены, иначе общие
+    links: signupOwn.length ? signupOwn : contacts.signup
   },
   venues: venuesOut,
   coaches,
-  promos: readList('promos.json').filter(isShown).map((p) => ({
-    title: str(p.title),
-    html: markdown(p.text, `Акция «${str(p.title)}»`),
-    image: mediaUrl(p.image),
-    buttonLabel: str(p.button_label),
-    buttonLink: safeUrl(p.button_link) || contacts.telegram,
-    until: parseDate(p.until)
-  })).filter((p) => p.title),
-  tournaments: {
-    introHtml: markdown(tournamentsFile.intro, 'Турниры, вступление'),
-    items: (Array.isArray(tournamentsFile.items) ? tournamentsFile.items : []).filter(isObject).filter(isShown).map((t, i) => {
-      const venue = findVenue(t.venue, `Турнир «${str(t.title)}»`);
-      const ref = venueRef(venue);
-      return {
-        title: str(t.title),
-        dates: str(t.dates),
-        place: ref ? ref.title : str(t.place),
-        placeAnchor: ref ? ref.anchor : '',
-        html: markdown(t.text, `Турнир «${str(t.title)}»`),
-        poster: mediaUrl(t.poster),
-        link: safeUrl(t.link),
-        until: parseDate(t.until)
-      };
-    }).filter((t) => t.title)
-  },
+  promos: cards('promos.json', 'Акции'),
+  tournaments: cards('tournaments.json', 'Турниры'),
   partners: readList('partners.json').filter(isShown).map((p) => ({
     title: str(p.title),
     description: str(p.description),

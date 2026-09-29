@@ -744,7 +744,7 @@ p { margin: 0 0 1em; }
   background: var(--panel);
 }
 
-.tournament__when {
+.card__when {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
@@ -757,7 +757,7 @@ p { margin: 0 0 1em; }
   color: var(--acc);
 }
 
-.tournament__where { color: var(--muted); }
+.card__where { color: var(--muted); }
 
 .tournaments__more {
   color: var(--muted);
