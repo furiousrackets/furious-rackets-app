@@ -157,6 +157,11 @@ p { margin: 0 0 1em; }
   letter-spacing: 0.06em;
 }
 .nav__link:hover { color: var(--acc); }
+.nav__link { white-space: nowrap; }
+
+/* «Контакты» в меню — только когда в шапке хватает места */
+@media (max-width: 999px) { .nav__link--wide { display: none; } }
+.brand { flex: none; }
 
 /* ---------- кнопки ---------- */
 
@@ -758,11 +763,6 @@ p { margin: 0 0 1em; }
 }
 
 .card__where { color: var(--muted); }
-
-.tournaments__more {
-  color: var(--muted);
-  margin: 22px 0 0;
-}
 
 /* ---------- партнёры ---------- */
 

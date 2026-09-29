@@ -271,8 +271,6 @@
   }
 
   function applyContacts(contacts) {
-    var main = contacts.main || {};
-    setLink('[data-main-link]', main.link);
     setLink('[data-phone-link]', contacts.phoneHref);
     networkButtons('[data-group-buttons]', contacts.signup, 'Группа в', 'btn--outline-dark', 'btn--outline-dark');
 
@@ -283,10 +281,6 @@
       node.innerHTML = escMultiline(contacts.phoneNote);
       node.hidden = !str(contacts.phoneNote);
     });
-    qa('.tournaments__more').forEach(function (node) {
-      node.hidden = !safeUrl(main.link);
-    });
-
     var socials = q('[data-socials]');
     if (socials) {
       var items = list(contacts.socials).filter(function (s) {
@@ -395,11 +389,6 @@
       layoutGrid(host, steps.length, 4);
     }
 
-    var eyebrow = q('[data-signup-eyebrow]');
-    if (eyebrow) {
-      eyebrow.textContent = str(data.eyebrow);
-      eyebrow.hidden = !str(data.eyebrow);
-    }
     setText('[data-signup-title]', data.title);
 
     // Кнопки записи: свои кнопки блока или общие сети для записи (это решает сборка)

@@ -368,7 +368,6 @@ const data = {
   schedule: schedule.map(({ venueId, ...row }) => row),
   signup: {
     show: signup.show !== false,
-    eyebrow: str(signup.eyebrow),
     title: str(signup.title),
     steps: (Array.isArray(signup.steps) ? signup.steps : []).filter(isObject).map((s, i) => ({
       title: str(s.title),

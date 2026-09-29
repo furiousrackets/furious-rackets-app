@@ -275,9 +275,6 @@ content:
             label: Показывать блок
             type: boolean
             default: true
-          - name: eyebrow
-            label: Надзаголовок
-            type: string
           - name: title
             label: Заголовок
             type: string

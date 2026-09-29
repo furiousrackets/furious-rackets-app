@@ -49,13 +49,15 @@
       <span class="brand__name">Бешеные<br>ракетки</span>
     </a>
 
+    <!-- data-nav прячет ссылку, если блок скрыт (например, нет активных акций).
+         «Контакты» (nav__link--wide) — только на широких экранах, на узких есть кнопка «Записаться». -->
     <nav class="nav" aria-label="Разделы сайта">
       <a class="nav__link" href="#schedule" data-nav="schedule">Расписание</a>
       <a class="nav__link" href="#signup" data-nav="signup">Запись</a>
-      <a class="nav__link" href="#venues" data-nav="venues">Где играем</a>
+      <a class="nav__link" href="#promos" data-nav="promos">Акции</a>
       <a class="nav__link" href="#tournaments" data-nav="tournaments">Турниры</a>
       <a class="nav__link" href="#faq" data-nav="faq">Вопросы</a>
-      <a class="nav__link" href="#contacts">Контакты</a>
+      <a class="nav__link nav__link--wide" href="#contacts">Контакты</a>
     </nav>
 
     <a class="btn btn--accent btn--sm header-cta" data-signup-cta href="#contacts">Записаться</a>
@@ -100,7 +102,6 @@
   <section class="section section--signup" id="signup" hidden>
     <div class="wrap">
       <div class="section__head">
-        <p class="eyebrow" data-signup-eyebrow hidden></p>
         <h2 class="h2" data-signup-title>Как записаться на тренировку</h2>
       </div>
       <ol class="steps auto-grid" data-steps></ol>
@@ -135,7 +136,6 @@
     <div class="wrap">
       <div class="section__head"><h2 class="h2">Турниры</h2></div>
       <div class="tournaments cards auto-grid" data-tournaments></div>
-      <p class="tournaments__more">Анонсы и результаты — <a data-main-link href="https://t.me/furiousrackets" target="_blank" rel="noopener">в нашей группе</a>.</p>
     </div>
   </section>
 
