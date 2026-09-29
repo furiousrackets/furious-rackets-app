@@ -714,6 +714,23 @@ p { margin: 0 0 1em; }
 /* ---------- тренер ---------- */
 
 
+/* Фото тренера — целиком, без обрезки (аватарки бывают круглыми, с прозрачным фоном) */
+.coach__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 28px 0;
+}
+
+.coach__media img {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: none;
+}
+
 .coach {
   display: grid;
   grid-template-columns: 1fr;
@@ -1147,15 +1164,11 @@ a.partner:hover .partner__name { color: var(--acc); }
      Несколько — обычные карточки в колонках: картинка сверху, текст снизу. */
   .cards[data-count="1"] > .promo,
   .cards[data-count="1"] > .tournament,
-  .cards[data-count="1"] > .coach { grid-template-columns: 1fr 1fr; gap: 0; }
+  .cards[data-count="1"] > .coach { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 0; }
 
   .cards[data-count="1"] > .is-textonly { grid-template-columns: 1fr; }
 
-  .cards[data-count="1"] .coach__media img {
-    aspect-ratio: auto;
-    height: 100%;
-    min-height: 280px;
-  }
+  .cards[data-count="1"] .coach__media { padding: 32px 0 32px 32px; }
 
   /* одна акция или турнир: картинка во всю высоту карточки (без полос сверху и снизу),
      ширина колонки подобрана под 16:9, чтобы обрезалось как можно меньше */
