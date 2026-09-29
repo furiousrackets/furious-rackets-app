@@ -321,6 +321,48 @@ p { margin: 0 0 1em; }
   max-width: 56ch;
 }
 
+/* ---------- форматированный текст из админки (Markdown) ---------- */
+
+.rich > :first-child { margin-top: 0; }
+.rich > :last-child { margin-bottom: 0; }
+.rich p { margin: 0 0 0.75em; }
+.rich ul,
+.rich ol { margin: 0 0 0.75em; padding-left: 1.25em; }
+.rich li { margin: 0.2em 0; }
+.rich li::marker { color: var(--acc); }
+.rich strong,
+.rich b { color: var(--text); font-weight: 800; }
+.rich h3,
+.rich h4 {
+  margin: 1em 0 0.4em;
+  font-family: var(--font-head);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 17px;
+  color: var(--text);
+}
+.rich blockquote {
+  margin: 0 0 0.75em;
+  padding-left: 14px;
+  border-left: 2px solid var(--acc);
+}
+.rich code {
+  font-size: 0.92em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+}
+
+.levels-list { list-style: none; padding-left: 0 !important; }
+.levels-list li { margin: 0.35em 0; }
+.levels-list strong { color: var(--acc); }
+
+.training__contact {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
 /* ---------- сетка, которая подстраивается под число записей ----------
    JS ставит --cols (широкий экран) и --cols-md (планшет) по количеству записей,
    а неполный последний ряд растягивается, так что пустых ячеек не бывает. */

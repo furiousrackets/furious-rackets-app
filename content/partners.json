@@ -1,14 +1,14 @@
 {
   "items": [
     {
-      "name": "Badmstore",
+      "title": "Badmstore",
       "description": "Магазин товаров для бадминтона",
       "logo": "",
       "link": "",
       "show": true
     },
     {
-      "name": "Мясной №1",
+      "title": "Мясной №1",
       "description": "Ресторан",
       "logo": "",
       "link": "",

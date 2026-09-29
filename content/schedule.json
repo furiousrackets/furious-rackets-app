@@ -3,56 +3,56 @@
     {
       "day": "Вторник",
       "time": "20:30–22:00",
-      "venue": "СГМУ",
-      "type": "рабочая",
+      "venue": "sgmu.json",
+      "type": "rabochaya.json",
       "levels": [],
-      "price": 500,
+      "price": "",
       "show": true
     },
     {
       "day": "Среда",
       "time": "19:00–21:00",
-      "venue": "Динамо",
-      "type": "игровая",
+      "venue": "dinamo.json",
+      "type": "igrovaya.json",
       "levels": [
-        "B",
-        "C+"
+        "b.json",
+        "c-plus.json"
       ],
-      "price": 550,
+      "price": "",
       "show": true
     },
     {
       "day": "Четверг",
       "time": "20:30–22:00",
-      "venue": "СГМУ",
-      "type": "рабочая",
+      "venue": "sgmu.json",
+      "type": "rabochaya.json",
       "levels": [],
-      "price": 500,
+      "price": "",
       "show": true
     },
     {
       "day": "Пятница",
       "time": "20:00–22:00",
-      "venue": "Динамо",
-      "type": "игровая",
+      "venue": "dinamo.json",
+      "type": "igrovaya.json",
       "levels": [
-        "C+",
-        "C"
+        "c-plus.json",
+        "c.json"
       ],
-      "price": 550,
+      "price": "",
       "show": true
     },
     {
       "day": "Суббота",
       "time": "18:00–20:00",
-      "venue": "СГМУ",
-      "type": "игровая",
+      "venue": "sgmu.json",
+      "type": "igrovaya.json",
       "levels": [
-        "C",
-        "E+",
-        "E"
+        "c.json",
+        "e-plus.json",
+        "e.json"
       ],
-      "price": 500,
+      "price": "",
       "show": true
     }
   ]
