@@ -6,8 +6,13 @@
   var CONTENT_DIR = 'content/';
   var TIMEOUT_MS = 8000;
 
-  var FILES = ['settings', 'trainings', 'schedule', 'venues', 'promos',
+  var FILES = ['settings', 'trainings', 'schedule', 'signup', 'venues', 'promos',
     'tournaments', 'coaches', 'partners', 'faq', 'socials'];
+
+  // Файлы-объекты (одна форма в админке); остальные — списки { "items": [...] }.
+  var OBJECT_FILES = ['settings', 'signup'];
+
+  function isObjectFile(name) { return OBJECT_FILES.indexOf(name) !== -1; }
 
   var FALLBACK_TELEGRAM = 'https://t.me/furiousrackets';
 
@@ -194,11 +199,11 @@
   // Если файл не загрузился или испорчен, блок просто скрывается.
   function loadFile(name) {
     return fetchJson(name).then(function (data) {
-      if (name === 'settings') return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+      if (isObjectFile(name)) return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
       var items = data && Array.isArray(data.items) ? data.items : [];
       return items.filter(function (item) { return item && typeof item === 'object'; });
     }).catch(function () {
-      return name === 'settings' ? {} : [];
+      return isObjectFile(name) ? {} : [];
     });
   }
 
@@ -231,6 +236,12 @@
 
     qa('[data-tg-link]').forEach(function (node) {
       node.setAttribute('href', telegram);
+    });
+
+    var max = safeUrl(settings.group_max);
+    qa('[data-max-link]').forEach(function (node) {
+      if (max) node.setAttribute('href', max);
+      node.hidden = !max;
     });
 
     qa('[data-phone-link]').forEach(function (node) {
@@ -276,6 +287,43 @@
 
   /* ---------- отрисовка ---------- */
 
+  // Сколько колонок дать блоку, чтобы не оставалось пустых ячеек:
+  // 1 запись — во всю ширину, 2 — в две колонки, 4 — сеткой 2×2 и т. д.
+  // Неполный последний ряд растягивается на всю ширину (см. .auto-grid в CSS).
+  function gridCols(count, max) {
+    if (count <= max) return Math.max(count, 1);
+    var best = max;
+    var bestRest = -1;
+    for (var cols = max; cols >= 2; cols -= 1) {
+      var rest = count % cols;
+      if (rest === 0) return cols;
+      if (rest > bestRest) {
+        best = cols;
+        bestRest = rest;
+      }
+    }
+    return best;
+  }
+
+  function layoutGrid(host, count, max) {
+    if (!host) return;
+    host.style.setProperty('--cols', String(gridCols(count, max)));
+    host.style.setProperty('--cols-md', String(gridCols(count, Math.min(max, 2))));
+    host.setAttribute('data-count', String(count));
+  }
+
+  // Если в блоке несколько карточек и у части есть картинка, остальным
+  // ставим заглушку со знаком клуба — чтобы карточки в ряду были одной высоты.
+  function needsPlaceholder(items, field) {
+    if (items.length < 2) return false;
+    return items.some(function (row) { return mediaUrl(cell(row, field)); });
+  }
+
+  function placeholder(prefix) {
+    return '<div class="' + prefix + '__media card-placeholder" aria-hidden="true">' +
+      '<img src="assets/mark.png" alt="" loading="lazy"></div>';
+  }
+
   function reveal(sectionId, isVisible) {
     var section = document.getElementById(sectionId);
     if (section) section.hidden = !isVisible;
@@ -295,6 +343,7 @@
         '</article>';
     }).join('');
 
+    layoutGrid(host, items.length, 3);
     reveal('trainings', items.length > 0);
   }
 
@@ -422,6 +471,7 @@
         '</article>';
     }).join('');
 
+    layoutGrid(host, venueIndex.shown.length, 3);
     reveal('venues', venueIndex.shown.length > 0);
   }
 
@@ -429,6 +479,7 @@
     var items = visibleRows(rows);
     var host = q('[data-promos]');
     if (!host) return;
+    var fill = needsPlaceholder(items, 'image');
 
     host.innerHTML = items.map(function (row) {
       var image = mediaUrl(cell(row, 'image'));
@@ -436,8 +487,8 @@
       var link = safeUrl(cell(row, 'button_link')) || telegram;
       var title = cell(row, 'title');
 
-      return '<article class="promo">' +
-        (image ? '<div class="promo__media"><img src="' + image + '" alt="' + esc(title) + '" loading="lazy"></div>' : '') +
+      return '<article class="promo' + (image || fill ? '' : ' is-textonly') + '">' +
+        (image ? '<div class="promo__media"><img src="' + image + '" alt="' + esc(title) + '" loading="lazy"></div>' : (fill ? placeholder('promo') : '')) +
         '<div class="promo__body">' +
           '<h3 class="promo__title">' + escMultiline(title) + '</h3>' +
           '<p class="promo__text">' + richText(cell(row, 'text')) + '</p>' +
@@ -448,6 +499,7 @@
         '</article>';
     }).join('');
 
+    layoutGrid(host, items.length, 3);
     reveal('promos', items.length > 0);
   }
 
@@ -455,6 +507,7 @@
     var items = visibleRows(rows);
     var host = q('[data-tournaments]');
     if (!host) return;
+    var fill = needsPlaceholder(items, 'poster');
 
     host.innerHTML = items.map(function (row) {
       var poster = mediaUrl(cell(row, 'poster'));
@@ -464,8 +517,8 @@
       var venue = venueIndex.byName[placeKey.toLowerCase()];
       var place = venue ? (venue.fullName || venue.name) : placeKey;
 
-      return '<article class="tournament">' +
-        (poster ? '<div class="tournament__media"><img src="' + poster + '" alt="' + esc(title) + '" loading="lazy"></div>' : '') +
+      return '<article class="tournament' + (poster || fill ? '' : ' is-textonly') + '">' +
+        (poster ? '<div class="tournament__media"><img src="' + poster + '" alt="' + esc(title) + '" loading="lazy"></div>' : (fill ? placeholder('tournament') : '')) +
         '<div class="tournament__body">' +
           '<h3 class="tournament__title">' + escMultiline(title) + '</h3>' +
           '<p class="tournament__when">' +
@@ -478,6 +531,7 @@
         '</article>';
     }).join('');
 
+    layoutGrid(host, items.length, 3);
     reveal('tournaments', items.length > 0);
   }
 
@@ -487,14 +541,15 @@
     });
     var host = q('[data-coaches]');
     if (!host) return;
+    var fill = needsPlaceholder(items, 'photo');
 
     host.innerHTML = items.map(function (row) {
       var photo = mediaUrl(cell(row, 'photo'));
       var telegram = safeUrl(cell(row, 'telegram'));
       var name = cell(row, 'name');
 
-      return '<article class="coach">' +
-        (photo ? '<div class="coach__media"><img src="' + photo + '" alt="' + esc(name) + '" loading="lazy"></div>' : '') +
+      return '<article class="coach' + (photo || fill ? '' : ' is-textonly') + '">' +
+        (photo ? '<div class="coach__media"><img src="' + photo + '" alt="' + esc(name) + '" loading="lazy"></div>' : (fill ? placeholder('coach') : '')) +
         '<div class="coach__body">' +
           '<h3 class="coach__name">' + esc(name) + '</h3>' +
           '<p class="coach__about">' + escMultiline(cell(row, 'about')) + '</p>' +
@@ -503,6 +558,10 @@
         '</article>';
     }).join('');
 
+    var title = q('[data-coach-title]');
+    if (title) title.textContent = items.length > 1 ? 'Тренеры' : 'Тренер';
+
+    layoutGrid(host, items.length, 3);
     reveal('coach', items.length > 0);
   }
 
@@ -527,6 +586,7 @@
         : '<div class="partner">' + inner + '</div>';
     }).join('');
 
+    layoutGrid(host, items.length, 4);
     reveal('partners', items.length > 0);
   }
 
@@ -545,6 +605,43 @@
     }).join('');
 
     host.hidden = items.length === 0;
+  }
+
+  function renderSignup(block) {
+    var data = block || {};
+    var steps = (Array.isArray(data.steps) ? data.steps : []).filter(function (step) {
+      return step && typeof step === 'object' && (cell(step, 'title') || cell(step, 'text'));
+    });
+    var host = q('[data-steps]');
+    var isVisible = data.show !== false && steps.length > 0;
+
+    if (host) {
+      host.innerHTML = steps.map(function (step, index) {
+        var title = cell(step, 'title');
+        var text = cell(step, 'text');
+        return '<li class="step">' +
+          '<span class="step__num" aria-hidden="true">' + (index + 1) + '</span>' +
+          (title ? '<h3 class="step__title">' + esc(title) + '</h3>' : '') +
+          (text ? '<p class="step__text">' + richText(text) + '</p>' : '') +
+          '</li>';
+      }).join('');
+      layoutGrid(host, steps.length, 4);
+    }
+
+    var eyebrow = q('[data-signup-eyebrow]');
+    if (eyebrow) {
+      eyebrow.textContent = cell(data, 'eyebrow');
+      eyebrow.hidden = !cell(data, 'eyebrow');
+    }
+    var title = q('[data-signup-title]');
+    if (title && cell(data, 'title')) title.textContent = cell(data, 'title');
+
+    // Кнопка «Записаться» в шапке ведёт к этому блоку, если он показан
+    qa('[data-signup-cta]').forEach(function (node) {
+      node.setAttribute('href', isVisible ? '#signup' : '#contacts');
+    });
+
+    reveal('signup', isVisible);
   }
 
   function renderFaq(rows) {
@@ -654,6 +751,7 @@
 
     renderTrainings(data.trainings);
     renderSchedule(data.schedule, venueIndex);
+    renderSignup(data.signup);
     renderVenues(venueIndex, data.schedule);
     renderPromos(data.promos, telegram);
     renderCoaches(data.coaches);
@@ -674,7 +772,7 @@
     loadContent().then(render).catch(function () {
       var empty = {};
       FILES.forEach(function (name) {
-        empty[name] = name === 'settings' ? {} : [];
+        empty[name] = isObjectFile(name) ? {} : [];
       });
       render(empty);
     }).then(loader.done, loader.done);

@@ -321,12 +321,81 @@ p { margin: 0 0 1em; }
   max-width: 56ch;
 }
 
+/* ---------- сетка, которая подстраивается под число записей ----------
+   JS ставит --cols (широкий экран) и --cols-md (планшет) по количеству записей,
+   а неполный последний ряд растягивается, так что пустых ячеек не бывает. */
+
+.auto-grid {
+  --grid-gap: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--grid-gap);
+}
+
+.auto-grid > * {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* ---------- как записаться ---------- */
+
+.steps {
+  --grid-gap: 1px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.step {
+  background: var(--panel);
+  padding: 24px 22px;
+}
+
+.step__num {
+  display: block;
+  margin: 0 0 14px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--acc);
+}
+
+.step__title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 22px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+}
+
+.step__text {
+  margin: 0;
+  color: var(--muted);
+}
+
+.signup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  margin-top: 30px;
+}
+
+.final__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
 /* ---------- виды тренировок ---------- */
 
 .trainings {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1px;
+  --grid-gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
 }
@@ -492,6 +561,24 @@ p { margin: 0 0 1em; }
 .promo__body,
 .tournament__body { padding: 22px 20px; }
 
+/* заглушка вместо картинки, когда у соседних карточек картинка есть */
+.card-placeholder {
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.card-placeholder img {
+  width: 28%;
+  max-width: 120px;
+  aspect-ratio: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  opacity: 0.35;
+}
+
 .promo__title,
 .tournament__title {
   font-family: var(--font-head);
@@ -512,9 +599,7 @@ p { margin: 0 0 1em; }
 /* ---------- площадки ---------- */
 
 .venues {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1px;
+  --grid-gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
 }
@@ -572,10 +657,6 @@ p { margin: 0 0 1em; }
 
 /* ---------- тренер ---------- */
 
-.coaches {
-  display: grid;
-  gap: 22px;
-}
 
 .coach {
   display: grid;
@@ -619,7 +700,6 @@ p { margin: 0 0 1em; }
   gap: 22px;
   border: 1px solid var(--line);
   background: var(--panel);
-  margin-bottom: 22px;
 }
 
 .tournament__when {
@@ -639,21 +719,18 @@ p { margin: 0 0 1em; }
 
 .tournaments__more {
   color: var(--muted);
-  margin: 0;
+  margin: 22px 0 0;
 }
 
 /* ---------- партнёры ---------- */
 
 .partners {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1px;
+  --grid-gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
 }
 
 .partner {
-  flex: 1 1 220px;
   background: var(--panel);
   padding: 20px;
   display: flex;
@@ -864,8 +941,9 @@ a.partner:hover .partner__name { color: var(--acc); }
 @media (min-width: 680px) {
   :root { --pad: 28px; }
 
-  .venues { grid-template-columns: repeat(2, 1fr); }
-  .trainings { grid-template-columns: repeat(3, 1fr); }
+  .auto-grid > * {
+    flex-basis: calc((100% - (var(--cols-md, 1) - 1) * var(--grid-gap)) / var(--cols-md, 1) - 0.5px);
+  }
 
   .venue__days:empty {
     display: block;
@@ -873,21 +951,25 @@ a.partner:hover .partner__name { color: var(--acc); }
   }
 
 
-  .promo,
-  .tournament,
-  .coach { grid-template-columns: 1fr 1fr; gap: 0; }
+  /* Одна карточка в блоке — картинка слева, текст справа, во всю ширину.
+     Несколько — обычные карточки в колонках: картинка сверху, текст снизу. */
+  .cards[data-count="1"] > .promo,
+  .cards[data-count="1"] > .tournament,
+  .cards[data-count="1"] > .coach { grid-template-columns: 1fr 1fr; gap: 0; }
 
-  .promo__media img,
-  .tournament__media img,
-  .coach__media img {
+  .cards[data-count="1"] > .is-textonly { grid-template-columns: 1fr; }
+
+  .cards[data-count="1"] .promo__media img,
+  .cards[data-count="1"] .tournament__media img,
+  .cards[data-count="1"] .coach__media img {
     aspect-ratio: auto;
     height: 100%;
     min-height: 280px;
   }
 
-  .promo__body,
-  .tournament__body,
-  .coach__body {
+  .cards[data-count="1"] .promo__body,
+  .cards[data-count="1"] .tournament__body,
+  .cards[data-count="1"] .coach__body {
     padding: 30px 28px;
     align-self: center;
   }
@@ -957,8 +1039,9 @@ a.partner:hover .partner__name { color: var(--acc); }
 }
 
 @media (min-width: 1080px) {
-  .venues { grid-template-columns: repeat(3, 1fr); }
-
+  .auto-grid > * {
+    flex-basis: calc((100% - (var(--cols, 1) - 1) * var(--grid-gap)) / var(--cols, 1) - 0.5px);
+  }
 }
 
 /* ---------- бережные анимации ---------- */

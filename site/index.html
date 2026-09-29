@@ -51,13 +51,14 @@
 
     <nav class="nav" aria-label="Разделы сайта">
       <a class="nav__link" href="#schedule" data-nav="schedule">Расписание</a>
-      <a class="nav__link" href="#venues" data-nav="venues">Площадки</a>
+      <a class="nav__link" href="#signup" data-nav="signup">Запись</a>
+      <a class="nav__link" href="#venues" data-nav="venues">Где играем</a>
       <a class="nav__link" href="#tournaments" data-nav="tournaments">Турниры</a>
       <a class="nav__link" href="#faq" data-nav="faq">Вопросы</a>
       <a class="nav__link" href="#contacts">Контакты</a>
     </nav>
 
-    <a class="btn btn--accent btn--sm header-cta" href="#contacts">Записаться</a>
+    <a class="btn btn--accent btn--sm header-cta" data-signup-cta href="#contacts">Записаться</a>
   </div>
 </header>
 
@@ -84,7 +85,7 @@
   <section class="section section--trainings" id="trainings" hidden>
     <div class="wrap">
       <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-trainings.png" alt="" width="200" height="194" loading="lazy"><h2 class="h2">Наши тренировки</h2></div>
-      <div class="trainings" data-trainings></div>
+      <div class="trainings auto-grid" data-trainings></div>
     </div>
   </section>
 
@@ -96,24 +97,38 @@
     </div>
   </section>
 
-  <section class="section section--promos" id="promos" hidden>
+  <section class="section section--signup" id="signup" hidden>
     <div class="wrap">
-      <div class="section__head"><h2 class="h2">Акции</h2></div>
-      <div data-promos></div>
+      <div class="section__head">
+        <p class="eyebrow" data-signup-eyebrow hidden></p>
+        <h2 class="h2" data-signup-title>Как записаться на тренировку</h2>
+      </div>
+      <ol class="steps auto-grid" data-steps></ol>
+      <div class="signup__actions" data-signup-actions>
+        <a class="btn btn--accent" data-tg-link href="https://t.me/furiousrackets" target="_blank" rel="noopener">Записаться в Telegram</a>
+        <a class="btn btn--ghost" data-max-link href="#" target="_blank" rel="noopener" hidden>Записаться в MAX</a>
+      </div>
     </div>
   </section>
 
   <section class="section section--venues" id="venues" hidden>
     <div class="wrap">
       <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-venues.png" alt="" width="200" height="154" loading="lazy"><h2 class="h2">Где играем</h2></div>
-      <div class="venues" data-venues></div>
+      <div class="venues auto-grid" data-venues></div>
     </div>
   </section>
 
   <section class="section section--coach" id="coach" hidden>
     <div class="wrap">
-      <div class="section__head"><h2 class="h2">Тренер</h2></div>
-      <div class="coaches" data-coaches></div>
+      <div class="section__head"><h2 class="h2" data-coach-title>Тренер</h2></div>
+      <div class="coaches cards auto-grid" data-coaches></div>
+    </div>
+  </section>
+
+  <section class="section section--promos" id="promos" hidden>
+    <div class="wrap">
+      <div class="section__head"><h2 class="h2">Акции</h2></div>
+      <div class="promos cards auto-grid" data-promos></div>
     </div>
   </section>
 
@@ -123,7 +138,7 @@
         <h2 class="h2">Турниры</h2>
         <p class="section__note" data-tournaments-intro></p>
       </div>
-      <div data-tournaments></div>
+      <div class="tournaments cards auto-grid" data-tournaments></div>
       <p class="tournaments__more">Анонсы и результаты — <a data-tg-link href="https://t.me/furiousrackets" target="_blank" rel="noopener">в нашей группе</a>.</p>
     </div>
   </section>
@@ -131,7 +146,7 @@
   <section class="section section--partners" id="partners" hidden>
     <div class="wrap">
       <div class="section__head"><h2 class="h2">Партнёры</h2></div>
-      <div class="partners" data-partners></div>
+      <div class="partners auto-grid" data-partners></div>
     </div>
   </section>
 
@@ -153,7 +168,10 @@
 
         <div class="final__tg">
           <p class="final__tg-text">Не любишь звонить? Тебе в группу — там вся жизнь клуба: анонсы, турниры, акции.</p>
-          <a class="btn btn--outline-dark" data-tg-link href="https://t.me/furiousrackets" target="_blank" rel="noopener">Группа в Telegram</a>
+          <div class="final__groups">
+            <a class="btn btn--outline-dark" data-tg-link href="https://t.me/furiousrackets" target="_blank" rel="noopener">Группа в Telegram</a>
+            <a class="btn btn--outline-dark" data-max-link href="#" target="_blank" rel="noopener" hidden>Группа в MAX</a>
+          </div>
         </div>
 
         <ul class="socials" data-socials hidden></ul>

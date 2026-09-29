@@ -38,6 +38,10 @@ content:
         label: Группа в Telegram
         type: string
         description: Ссылка вида https://t.me/… — сюда ведёт кнопка «Группа в Telegram»
+      - name: group_max
+        label: Группа в MAX
+        type: string
+        description: Ссылка на чат в MAX. Пусто — кнопки MAX на сайте не будет.
       - name: coach_telegram
         label: Telegram тренера
         type: string
@@ -45,6 +49,33 @@ content:
       - name: tournaments_intro
         label: Вступление к блоку «Турниры»
         type: text
+
+  - name: trainings
+    label: Виды тренировок
+    type: file
+    path: site/content/trainings.json
+    format: json
+    fields:
+      - name: items
+        label: false
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{title}"
+        fields:
+          - name: title
+            label: Название
+            type: string
+            required: true
+          - name: description
+            label: Описание
+            type: text
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: show
+            label: Показывать на сайте
+            type: boolean
+            default: true
 
   - name: schedule
     label: Расписание
@@ -95,6 +126,42 @@ content:
             type: boolean
             default: true
 
+  - name: signup
+    label: Как записаться
+    type: file
+    path: site/content/signup.json
+    format: json
+    fields:
+      - name: show
+        label: Показывать блок на сайте
+        type: boolean
+        default: true
+      - name: eyebrow
+        label: Надзаголовок
+        type: string
+        description: Маленькая зелёная строка над заголовком. Пусто — не показывается.
+      - name: title
+        label: Заголовок
+        type: string
+        required: true
+      - name: steps
+        label: Шаги
+        description: Номера (1, 2, 3…) сайт ставит сам по порядку. Под шагами — кнопки Telegram и MAX из «Главного экрана и контактов».
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{index}. {title}"
+        fields:
+          - name: title
+            label: Заголовок шага
+            type: string
+            required: true
+          - name: text
+            label: Текст
+            type: text
+            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+
   - name: venues
     label: Площадки
     type: file
@@ -129,10 +196,10 @@ content:
             type: boolean
             default: true
 
-  - name: trainings
-    label: Виды тренировок
+  - name: coaches
+    label: Тренеры
     type: file
-    path: site/content/trainings.json
+    path: site/content/coaches.json
     format: json
     fields:
       - name: items
@@ -141,16 +208,22 @@ content:
         list:
           collapsible:
             collapsed: true
-            summary: "{title}"
+            summary: "{name}"
         fields:
-          - name: title
-            label: Название
+          - name: name
+            label: Имя
             type: string
             required: true
-          - name: description
-            label: Описание
+          - name: photo
+            label: Фото
+            type: image
+          - name: about
+            label: О себе
             type: text
-            description: "Можно вставить {телефон}, {тренер} или {группа} — станут ссылками"
+          - name: telegram
+            label: Telegram
+            type: string
+            description: Ссылка вида https://t.me/…
           - name: show
             label: Показывать на сайте
             type: boolean
@@ -241,39 +314,6 @@ content:
             type: date
             default: ""
             description: На следующий день турнир сам исчезнет с сайта. Пусто — бессрочно.
-          - name: show
-            label: Показывать на сайте
-            type: boolean
-            default: true
-
-  - name: coaches
-    label: Тренеры
-    type: file
-    path: site/content/coaches.json
-    format: json
-    fields:
-      - name: items
-        label: false
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: "{name}"
-        fields:
-          - name: name
-            label: Имя
-            type: string
-            required: true
-          - name: photo
-            label: Фото
-            type: image
-          - name: about
-            label: О себе
-            type: text
-          - name: telegram
-            label: Telegram
-            type: string
-            description: Ссылка вида https://t.me/…
           - name: show
             label: Показывать на сайте
             type: boolean
