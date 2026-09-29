@@ -123,13 +123,6 @@ function telegramHandle(url) {
   return match ? `@${match[1]}` : '';
 }
 
-// Подпись для ссылки-контакта: @ник для Telegram, номер для телефона
-function contactLabel(url) {
-  if (/^tel:/i.test(url)) return url.slice(4);
-  if (/^mailto:/i.test(url)) return url.slice(7);
-  return telegramHandle(url) || (/max\.ru/i.test(url) ? 'в MAX' : 'по ссылке');
-}
-
 function parseDate(value) {
   const text = str(value);
   let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
@@ -170,12 +163,11 @@ const pick = ({ title, link }) => ({ title, link });
 const contacts = {
   phone: str(general.phone),
   phoneHref: telHref(general.phone),
-  phoneNote: str(general.phone_note),
   main: mainNetwork ? { ...pick(mainNetwork), handle: telegramHandle(mainNetwork.link) } : null,
-  signup: networks.filter((n) => n.signup).map(pick),          // кнопки «Записаться в …» / «Группа в …»
+  // в окне «Записаться» и «Группа в …» внизу; главная — первой
+  signup: networks.filter((n) => n.signup).sort((a, b) => (b === mainNetwork) - (a === mainNetwork)).map(pick),
   socials: networks.filter((n) => !n.signup).map(pick)         // остальные — ссылками внизу страницы
 };
-const mainLink = contacts.main ? contacts.main.link : '';
 
 function normName(value) {
   return str(value).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, '');
@@ -319,25 +311,20 @@ const venuesOut = shownVenues.map((v) => {
 
 /* ---------- виды тренировок ---------- */
 
-const trainings = trainingTypes.filter(isShown).map((t) => {
-  const contact = safeUrl(t.contact);
-  return {
-    title: str(t.title),
-    html: markdown(t.description, `Вид тренировки «${str(t.title)}»`),
-    contact: contact ? { href: contact, label: contactLabel(contact) } : null
-  };
-}).filter((t) => t.title);
+// «Написать тренеру» ведёт к блоку «Тренеры» — только если там есть кого показать
+const trainings = trainingTypes.filter(isShown).map((t) => ({
+  title: str(t.title),
+  html: markdown(t.description, `Вид тренировки «${str(t.title)}»`),
+  coachesLink: t.coaches_link === true && coaches.length > 0
+})).filter((t) => t.title);
 
 /* ---------- блоки ---------- */
 
 const hero = readObject('hero.json');
 const signup = readObject('signup.json');
 const final = readObject('final.json');
+const sheet = isObject(signup.sheet) ? signup.sheet : {};   // окно «Записаться»
 
-// Свои кнопки записи блока, если заполнены, иначе — сети с отметкой «через неё записываются»
-const signupOwn = (Array.isArray(signup.links) ? signup.links : []).filter(isObject)
-  .map((l) => ({ title: str(l.title), link: safeUrl(l.link) }))
-  .filter((l) => l.title && l.link);
 
 // Акции и турниры — разные списки, но карточки у них одинаковые
 function cards(file, section) {
@@ -355,7 +342,7 @@ function cards(file, section) {
       html: markdown(e.text, where),
       image: mediaUrl(e.image),
       buttonLabel: label,
-      buttonLink: label ? (ownLink || mainLink) : '',   // своя ссылка или главная сеть
+      buttonLink: label ? ownLink : '',   // пусто — кнопка открывает окно «Записаться»
       until: parseDate(e.until)
     };
   }).filter((e) => e.title);
@@ -373,8 +360,13 @@ const data = {
       title: str(s.title),
       html: markdown(s.text, `Как записаться, шаг ${i + 1}`)
     })).filter((s) => s.title || s.html),
-    // свои кнопки блока, если заполнены, иначе общие
-    links: signupOwn.length ? signupOwn : contacts.signup
+    // окно «Записаться»: каналы — сети с отметкой в «Контактах и соцсетях» и телефон
+    buttonLabel: str(signup.button_label) || 'Записаться на тренировку',
+    sheetTitle: str(sheet.title),
+    sheetText: str(sheet.text),
+    sheetNetworkLabel: str(sheet.network_label) || 'Написать в {сеть}',
+    sheetPhone: sheet.phone !== false,
+    sheetPhoneLabel: str(sheet.phone_label) || 'Позвонить'
   },
   venues: venuesOut,
   coaches,

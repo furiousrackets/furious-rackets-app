@@ -2,7 +2,7 @@
   "title": "Рабочая",
   "description": "Тренер ставит технику: удары, передвижения, работа ног, упражнения в парах. Если идёшь первый раз — тебе сюда.",
   "highlight": false,
-  "contact": "",
+  "coaches_link": false,
   "order": 10,
   "show": true
 }

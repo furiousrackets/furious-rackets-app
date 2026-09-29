@@ -213,6 +213,12 @@ p { margin: 0 0 1em; }
 }
 
 .header-cta { flex: none; }
+.header-cta__full { display: none; }
+
+@media (min-width: 860px) {
+  .header-cta__short { display: none; }
+  .header-cta__full { display: inline; }
+}
 
 /* ---------- первый экран ---------- */
 
@@ -362,11 +368,7 @@ p { margin: 0 0 1em; }
 .levels-list li { margin: 0.35em 0; }
 .levels-list strong { color: var(--acc); }
 
-.training__contact {
-  margin: 14px 0 0;
-  color: var(--muted);
-  font-size: 15px;
-}
+.training__contact { color: var(--muted); }
 
 /* ---------- сетка, которая подстраивается под число записей ----------
    JS ставит --cols (широкий экран) и --cols-md (планшет) по количеству записей,
@@ -881,12 +883,6 @@ a.partner:hover .partner__name { color: var(--acc); }
   padding: 16px 30px;
 }
 
-.final__who {
-  margin: 12px 0 0;
-  font-weight: 700;
-  font-size: 15px;
-}
-
 .final__tg {
   margin-top: 34px;
   padding-top: 26px;
@@ -953,7 +949,7 @@ a.partner:hover .partner__name { color: var(--acc); }
   left: 12px;
   right: 12px;
   bottom: calc(12px + env(safe-area-inset-bottom));
-  z-index: 60;
+  z-index: 45;
   display: block;
   background: var(--acc);
   color: #000;
@@ -976,6 +972,133 @@ a.partner:hover .partner__name { color: var(--acc); }
 
 @media (min-width: 860px) {
   .sticky-cta { display: none; }
+}
+
+/* ---------- единые отступы внутри карточек ----------
+   Заголовок, строка «когда/где», текст — через 12px; перед кнопкой или ссылкой — ещё 6px.
+   Отступы задаёт gap, собственные margin у элементов обнулены, чтобы не складывались. */
+
+.training,
+.step,
+.coach__body,
+.promo__body,
+.tournament__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.training > *,
+.step > *,
+.coach__body > *,
+.promo__body > *,
+.tournament__body > * { margin: 0; }
+
+.training__contact,
+.coach__body > .link-accent,
+.promo__body > .btn,
+.tournament__body > .btn { margin-top: 6px; }
+
+.step > .step__num { margin-bottom: 2px; }
+
+/* ---------- окно «Записаться» ----------
+   На телефоне выезжает снизу, на широком экране — окно по центру. */
+
+/* Страницу под окном не трогаем (никаких overflow: hidden) — иначе прыгает шапка
+   и дёргается вёрстка. Прокрутку фона гасит скрипт на самом окне. */
+
+/* Окно открывается под шапкой: она остаётся видимой и не затемняется */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: calc(var(--header-h) + 1px + env(safe-area-inset-top));
+}
+
+.sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-top: 3px solid var(--acc);
+  padding: 28px 20px calc(22px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.25s ease-out;
+}
+
+.sheet.is-open .sheet__backdrop { opacity: 1; }
+.sheet__panel:focus { outline: none; }
+.sheet.is-open .sheet__panel { transform: none; }
+
+.sheet__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sheet__close:hover { color: var(--acc); }
+
+.sheet__title {
+  margin: 0 44px 10px 0;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.sheet__text {
+  margin: 0 0 22px;
+  color: var(--muted);
+}
+
+.sheet__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet__actions .btn { display: block; }
+
+@media (min-width: 680px) {
+  .sheet {
+    align-items: center;
+    padding: calc(var(--header-h) + 1px + env(safe-area-inset-top) + 24px) 24px 24px;
+  }
+  .sheet__panel {
+    border-bottom: 1px solid var(--line);
+    padding: 34px 30px 30px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  .sheet.is-open .sheet__panel { opacity: 1; transform: none; }
 }
 
 /* ---------- широкие экраны ---------- */
@@ -1097,4 +1220,5 @@ a.partner:hover .partner__name { color: var(--acc); }
     transition-duration: 0.001ms !important;
   }
   .sticky-cta { transition: none; }
+  .sheet__panel, .sheet__backdrop { transition: none; }
 }

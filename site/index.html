@@ -60,7 +60,10 @@
       <a class="nav__link nav__link--wide" href="#contacts">Контакты</a>
     </nav>
 
-    <a class="btn btn--accent btn--sm header-cta" data-signup-cta href="#contacts">Записаться</a>
+    <a class="btn btn--ghost btn--sm header-cta" data-phone-link href="tel:+79272776339">
+      <span class="header-cta__short">Позвонить</span>
+      <span class="header-cta__full" data-phone-text>+7 (927) 277-63-39</span>
+    </a>
   </div>
 </header>
 
@@ -74,8 +77,8 @@
         <p class="slogan"><span class="slogan__in" data-hero-slogan>Больше чем бадминтон</span></p>
         <p class="hero__lead" data-hero-text>Мы те, кто считает, что лучший отдых — это погонять волан до седьмого пота. Всегда рады новичкам — приходи, даже если ни разу не держал ракетку.</p>
         <div class="hero__actions">
-          <a class="btn btn--accent" data-phone-link href="tel:+70000000000">Позвонить</a>
-          <a class="btn btn--ghost" href="#schedule">Смотреть расписание</a>
+          <a class="btn btn--accent" href="#signup" data-open-signup data-signup-label>Записаться на тренировку</a>
+          <a class="btn btn--ghost" href="#schedule">Расписание</a>
         </div>
       </div>
       <div class="hero__art">
@@ -105,8 +108,8 @@
         <h2 class="h2" data-signup-title>Как записаться на тренировку</h2>
       </div>
       <ol class="steps auto-grid" data-steps></ol>
-      <div class="signup__actions" data-signup-actions>
-        <a class="btn btn--accent" href="https://t.me/furiousrackets" target="_blank" rel="noopener">Записаться в Telegram</a>
+      <div class="signup__actions">
+        <a class="btn btn--accent" href="#contacts" data-open-signup data-signup-label>Записаться на тренировку</a>
       </div>
     </div>
   </section>
@@ -159,8 +162,7 @@
         <h2 class="final__title" data-final-title>Приходи играть</h2>
         <p class="final__text" data-final-text>Звони — расскажем, покажем, объясним.</p>
 
-        <a class="btn btn--dark final__phone" data-phone-link href="tel:+70000000000"><span data-phone-text>+7 000 000-00-00</span></a>
-        <p class="final__who" data-phone-name>Отвечает Руслан — он и запишет</p>
+        <a class="btn btn--dark final__phone" data-phone-link href="tel:+79272776339"><span data-phone-text>+7 (927) 277-63-39</span></a>
 
         <div class="final__tg">
           <p class="final__tg-text" data-final-groups-text>Не любишь звонить? Тебе в группу — там вся жизнь клуба: анонсы, турниры, акции.</p>
@@ -185,7 +187,21 @@
   </div>
 </footer>
 
-<a class="sticky-cta" data-phone-link data-sticky-cta href="tel:+70000000000">Позвонить</a>
+<a class="sticky-cta" data-sticky-cta data-open-signup data-signup-label href="#signup">Записаться на тренировку</a>
+
+<!-- Окно «Записаться»: открывается кнопками с data-open-signup, каналы — из data.json -->
+<div class="sheet" data-sheet hidden>
+  <div class="sheet__backdrop" data-sheet-close></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1">
+    <button class="sheet__close" type="button" data-sheet-close aria-label="Закрыть">×</button>
+    <h2 class="sheet__title" id="sheet-title" data-sheet-title>Как удобнее записаться?</h2>
+    <p class="sheet__text" data-sheet-text>Напиши, в какой день хочешь прийти — подскажем тренировку по уровню.</p>
+    <div class="sheet__actions" data-sheet-actions>
+      <a class="btn btn--accent" href="https://t.me/furiousrackets" target="_blank" rel="noopener">Написать в Telegram</a>
+      <a class="btn btn--ghost" href="tel:+79272776339">Позвонить +7 (927) 277-63-39</a>
+    </div>
+  </div>
+</div>
 
 <script src="js/app.js"></script>
 </body>

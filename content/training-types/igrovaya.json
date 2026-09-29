@@ -2,7 +2,7 @@
   "title": "Игровая",
   "description": "Играем матчи. Составы собираем по уровню, чтобы всем было интересно и никто не скучал.",
   "highlight": true,
-  "contact": "",
+  "coaches_link": false,
   "order": 20,
   "show": true
 }

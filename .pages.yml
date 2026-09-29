@@ -64,7 +64,7 @@ components:
       - name: button_link
         label: Своя ссылка кнопки
         type: string
-        description: Пусто — главная сеть
+        description: Пусто — откроется окно «Записаться»
       - name: until
         label: Показывать до
         type: date
@@ -87,9 +87,6 @@ content:
           - name: phone
             label: Телефон
             type: string
-          - name: phone_note
-            label: Кто отвечает на звонки
-            type: string
           - name: networks
             label: Соцсети и мессенджеры
             type: object
@@ -110,12 +107,12 @@ content:
                 label: Главная
                 type: boolean
                 default: false
-                description: Одна на сайт — сюда ведут кнопки по умолчанию
+                description: Одна на сайт — первая в окне «Записаться» и в {группа}
               - name: signup
-                label: Кнопка «Записаться»
+                label: Для записи
                 type: boolean
                 default: false
-                description: В «Как записаться» и внизу страницы. Без отметки — просто ссылка внизу.
+                description: Показывать в окне «Записаться» и кнопкой внизу страницы. Без отметки — просто ссылка в самом низу.
 
       - name: levels
         label: Уровни игроков
@@ -194,10 +191,11 @@ content:
             label: Выделять в расписании
             type: boolean
             default: false
-          - name: contact
-            label: Свой контакт для записи
-            type: string
-            description: Только если не общий — например, тренер для персональной
+          - name: coaches_link
+            label: Ссылка «Написать тренеру»
+            type: boolean
+            default: false
+            description: Ведёт к блоку «Тренеры»; если он скрыт, ссылки не будет
           - name: order
             component: order
           - name: show
@@ -294,23 +292,33 @@ content:
               - name: text
                 label: Текст
                 component: rich
-          - name: links
-            label: Свои кнопки записи
-            description: Пусто — из «Контактов и соцсетей»
+          - name: button_label
+            label: Текст кнопки записи
+            type: string
+            description: На первом экране, под шагами и на плавающей кнопке на телефоне
+          - name: sheet
+            label: Окно «Записаться»
+            description: Открывается всеми кнопками «Записаться» на сайте
             type: object
-            list:
-              collapsible:
-                collapsed: true
-                summary: "{title}"
             fields:
               - name: title
-                label: Куда записываться
+                label: Заголовок
                 type: string
-                required: true
-              - name: link
-                label: Ссылка
+              - name: text
+                label: Текст
                 type: string
-                required: true
+              - name: network_label
+                label: Кнопки сетей
+                type: string
+                description: "{сеть} заменится на название: «Написать в {сеть}» → «Написать в Telegram». Какие сети — отметка «Для записи» в «Контактах и соцсетях»."
+              - name: phone
+                label: Показывать телефон
+                type: boolean
+                default: true
+              - name: phone_label
+                label: Кнопка телефона
+                type: string
+                description: Номер добавится после текста
 
       - name: venues
         label: Где играем

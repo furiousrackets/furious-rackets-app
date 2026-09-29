@@ -277,10 +277,6 @@
     qa('[data-phone-text]').forEach(function (node) {
       node.textContent = str(contacts.phone);
     });
-    qa('[data-phone-name]').forEach(function (node) {
-      node.innerHTML = escMultiline(contacts.phoneNote);
-      node.hidden = !str(contacts.phoneNote);
-    });
     var socials = q('[data-socials]');
     if (socials) {
       var items = list(contacts.socials).filter(function (s) {
@@ -313,13 +309,11 @@
     if (!host) return;
 
     host.innerHTML = items.map(function (t) {
-      var contact = t.contact && safeUrl(t.contact.href);
       return '<article class="training">' +
         '<h3 class="training__title">' + esc(t.title) + '</h3>' +
         (str(t.html) ? '<div class="training__text rich">' + richHtml(t.html) + '</div>' : '') +
-        (contact
-          ? '<p class="training__contact">Записаться: <a class="link-accent" href="' + contact + '"' + blank(t.contact.href) + '>' +
-            esc(t.contact.label || 'написать') + '</a></p>'
+        (t.coachesLink
+          ? '<p class="training__contact"><a class="link-accent" href="#coach">Написать тренеру →</a></p>'
           : '') +
         '</article>';
     }).join('');
@@ -390,12 +384,14 @@
     }
 
     setText('[data-signup-title]', data.title);
+    qa('[data-signup-label]').forEach(function (node) {
+      if (str(data.buttonLabel)) node.textContent = str(data.buttonLabel);
+    });
+    setText('[data-sheet-title]', data.sheetTitle);
+    setText('[data-sheet-text]', data.sheetText);
 
-    // Кнопки записи: свои кнопки блока или общие сети для записи (это решает сборка)
-    networkButtons('[data-signup-actions]', data.links, 'Записаться в', 'btn--accent', 'btn--ghost');
-
-    // Кнопка «Записаться» в шапке ведёт к этому блоку, если он показан
-    qa('[data-signup-cta]').forEach(function (node) {
+    // Без JS кнопки «Записаться» ведут к этому блоку, если он показан, иначе к контактам
+    qa('a[data-open-signup]').forEach(function (node) {
       node.setAttribute('href', isVisible ? '#signup' : '#contacts');
     });
 
@@ -471,8 +467,11 @@
           '<h3 class="' + prefix + '__title">' + escMultiline(c.title) + '</h3>' +
           ((str(c.when) || place) ? '<p class="card__when">' + esc(c.when) + place + '</p>' : '') +
           (str(c.html) ? '<div class="' + prefix + '__text rich">' + richHtml(c.html) + '</div>' : '') +
-          (str(c.buttonLabel) && link
-            ? '<a class="btn ' + buttonClass + '" href="' + link + '"' + blank(c.buttonLink) + '>' + esc(c.buttonLabel) + '</a>'
+          (str(c.buttonLabel)
+            ? (link
+              ? '<a class="btn ' + buttonClass + '" href="' + link + '"' + blank(c.buttonLink) + '>' + esc(c.buttonLabel) + '</a>'
+              // без своей ссылки кнопка открывает окно «Записаться»
+              : '<a class="btn ' + buttonClass + '" href="#signup" data-open-signup>' + esc(c.buttonLabel) + '</a>')
             : '') +
         '</div>' +
         '</article>';
@@ -524,6 +523,132 @@
 
     reveal('faq', items.length > 0);
   }
+
+  /* ---------- окно «Записаться» ---------- */
+
+  var sheet = {
+    root: null,
+    lastFocus: null,
+    hasActions: false,
+
+    // Кнопки окна: сети с отметкой «Для записи» (главная первой) и телефон
+    fill: function (contacts, texts) {
+      var host = q('[data-sheet-actions]');
+      if (!host) return;
+      var networkLabel = str(texts.sheetNetworkLabel) || 'Написать в {сеть}';
+      var phoneLabel = str(texts.sheetPhoneLabel) || 'Позвонить';
+
+      // «Написать в {сеть}» → «Написать в Telegram»; без {сеть} название добавляется в конец
+      function labelFor(name) {
+        return networkLabel.indexOf('{сеть}') !== -1
+          ? networkLabel.split('{сеть}').join(name)
+          : networkLabel + ' ' + name;
+      }
+
+      var html = list(contacts.signup).filter(function (n) {
+        return str(n.title) && safeUrl(n.link);
+      }).map(function (n, index) {
+        return '<a class="btn ' + (index === 0 ? 'btn--accent' : 'btn--ghost') + '" href="' + safeUrl(n.link) + '"' + blank(n.link) + '>' +
+          esc(labelFor(str(n.title))) + '</a>';
+      });
+      if (texts.sheetPhone !== false && safeUrl(contacts.phoneHref)) {
+        html.push('<a class="btn ' + (html.length ? 'btn--ghost' : 'btn--accent') + '" href="' + safeUrl(contacts.phoneHref) + '">' +
+          esc(phoneLabel + ' ' + str(contacts.phone)) + '</a>');
+      }
+      host.innerHTML = html.join('');
+      this.hasActions = !!host.querySelector('a');
+    },
+
+    open: function () {
+      var root = this.root;
+      if (!root || !this.hasActions) return false;
+      this.lastFocus = document.activeElement;
+      root.hidden = false;
+      // даём браузеру отрисовать окно, чтобы сработала анимация
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { root.classList.add('is-open'); });
+      });
+      // фокус на само окно (без рамки на кнопке); дальше Tab идёт по кнопкам
+      var panel = root.querySelector('.sheet__panel');
+      if (panel) setTimeout(function () { panel.focus({ preventScroll: true }); }, 50);
+      return true;
+    },
+
+    close: function (keepFocus) {
+      var root = this.root;
+      if (!root || root.hidden) return;
+      root.classList.remove('is-open');
+      setTimeout(function () { root.hidden = true; }, 260);
+      // фокус возвращаем на кнопку, кроме случая, когда человек ушёл по ссылке в шапке
+      if (!keepFocus && this.lastFocus && this.lastFocus.focus) this.lastFocus.focus({ preventScroll: true });
+    },
+
+    setup: function () {
+      var self = this;
+      self.root = q('[data-sheet]');
+      if (!self.root) return;
+      // запасные кнопки из разметки — на случай, если data.json не загрузился
+      self.hasActions = !!self.root.querySelector('.sheet__actions a');
+
+      document.addEventListener('click', function (event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        if (target.closest('[data-open-signup]')) {
+          if (self.open()) event.preventDefault();
+          return;
+        }
+        if (target.closest('[data-sheet-close]')) {
+          self.close();
+          return;
+        }
+        // нажали что-то в шапке при открытом окне — закрываем окно
+        if (!self.root.hidden && target.closest('.site-header')) {
+          self.close(true);
+          return;
+        }
+        // выбрали способ записи — окно закрываем
+        if (target.closest('.sheet__actions a')) self.close();
+      });
+
+      // Колесо и свайп по окну не прокручивают страницу под ним.
+      // Внутри панели прокрутка работает, если её содержимое не помещается.
+      var panel = self.root.querySelector('.sheet__panel');
+      function stopScroll(event) {
+        var inPanel = panel && panel.contains(event.target);
+        if (inPanel && panel.scrollHeight > panel.clientHeight + 1) {
+          var dy = event.deltaY || 0;
+          var atTop = panel.scrollTop <= 0;
+          var atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1;
+          if (event.type === 'touchmove' || (dy < 0 && !atTop) || (dy > 0 && !atBottom)) return;
+        }
+        event.preventDefault();
+      }
+      self.root.addEventListener('wheel', stopScroll, { passive: false });
+      self.root.addEventListener('touchmove', stopScroll, { passive: false });
+
+      document.addEventListener('keydown', function (event) {
+        if (self.root.hidden) return;
+        if (event.key === 'Escape') {
+          self.close();
+          return;
+        }
+        // Tab не уходит из окна
+        if (event.key === 'Tab') {
+          var items = Array.prototype.slice.call(self.root.querySelectorAll('a, button'));
+          if (!items.length) return;
+          var first = items[0];
+          var last = items[items.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            last.focus();
+            event.preventDefault();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            first.focus();
+            event.preventDefault();
+          }
+        }
+      });
+    }
+  };
 
   /* ---------- служебное ---------- */
 
@@ -610,6 +735,7 @@
 
   function render(data) {
     applyContacts(data.contacts || {});
+    sheet.fill(data.contacts || {}, data.signup || {});
     applyTexts(data);
 
     renderTrainings(list(data.trainings));
@@ -628,6 +754,7 @@
   function start() {
     setYear();
     setupStickyCta();
+    sheet.setup();
 
     var loader = createLoader();
 
