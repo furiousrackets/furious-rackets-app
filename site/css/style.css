@@ -800,12 +800,25 @@ p { margin: 0 0 1em; }
 
 .partner {
   background: var(--panel);
-  padding: 20px;
+  padding: 24px 22px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  text-decoration: none;
+  gap: 14px;
   color: var(--text);
+}
+
+/* Логотип — в полосе одной высоты по центру: так описания во всех карточках
+   начинаются на одном уровне, а ссылки прижаты к низу */
+.partner__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96px;
+  margin: -4px 0 6px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
 }
 
 .partner__name {
@@ -816,14 +829,21 @@ p { margin: 0 0 1em; }
   letter-spacing: 0.02em;
 }
 
-.partner__logo { max-height: 46px; width: auto; object-fit: contain; }
+/* высокие логотипы упираются в высоту, широкие — в ширину, чтобы на вид были соразмерны */
+.partner__logo { display: block; width: auto; height: auto; max-height: 56px; max-width: min(100%, 240px); }
 
 .partner__desc {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 15px;
 }
 
-a.partner:hover .partner__name { color: var(--acc); }
+.partner__link {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.partner__brand:hover .partner__name,
+.partner__link:hover { color: var(--text); }
 
 /* ---------- вопросы ---------- */
 

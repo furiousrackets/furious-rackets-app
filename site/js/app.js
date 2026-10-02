@@ -497,6 +497,11 @@
     renderCards('tournament', all.filter(isActual), 'tournaments');
   }
 
+  // «https://www.badm-store.ru/» → «badm-store.ru»
+  function linkHost(url) {
+    return str(url).replace(/^[a-z]+:(\/\/)?/i, '').replace(/^www\./i, '').replace(/[?#].*$/, '').replace(/\/+$/, '') || 'Перейти';
+  }
+
   function renderPartners(items) {
     var host = q('[data-partners]');
     if (!host) return;
@@ -504,14 +509,17 @@
     host.innerHTML = items.map(function (p) {
       var logo = safeUrl(p.logo);
       var link = safeUrl(p.link);
-      var inner = (logo
+      var brand = logo
         ? '<img class="partner__logo" src="' + logo + '" alt="' + esc(p.title) + '" loading="lazy">'
-        : '<span class="partner__name">' + esc(p.title) + '</span>') +
-        (str(p.description) ? '<span class="partner__desc">' + escMultiline(p.description) + '</span>' : '');
+        : '<span class="partner__name">' + esc(p.title) + '</span>';
+      var label = str(p.linkLabel) || linkHost(link);
 
-      return link
-        ? '<a class="partner" href="' + link + '"' + blank(p.link) + '>' + inner + '</a>'
-        : '<div class="partner">' + inner + '</div>';
+      return '<div class="partner">' +
+        (link ? '<a class="partner__brand" href="' + link + '"' + blank(link) + '>' + brand + '</a>'
+          : '<div class="partner__brand">' + brand + '</div>') +
+        (str(p.html) ? '<div class="partner__desc rich">' + richHtml(p.html) + '</div>' : '') +
+        (link ? '<a class="partner__link link-accent" href="' + link + '"' + blank(link) + '>' + esc(label) + ' ↗</a>' : '') +
+        '</div>';
     }).join('');
 
     layoutGrid(host, items.length, 4);

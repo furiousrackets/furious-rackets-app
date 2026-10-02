@@ -452,13 +452,18 @@ content:
                 required: true
               - name: description
                 label: Описание
-                type: string
+                component: rich
               - name: logo
                 label: Логотип
                 type: image
               - name: link
                 label: Ссылка
                 type: string
+                description: Сайт или соцсеть партнёра — в карточке появится ссылка
+              - name: link_label
+                label: Текст ссылки
+                type: string
+                description: Если пусто — адрес сайта, например «badm-store.ru»
               - name: show
                 component: show
 

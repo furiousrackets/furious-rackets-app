@@ -370,9 +370,10 @@ const data = {
   tournaments: cards('tournaments.json', 'Турниры'),
   partners: readList('partners.json').filter(isShown).map((p) => ({
     title: str(p.title),
-    description: str(p.description),
+    html: markdown(p.description, `Партнёр «${str(p.title)}»`),
     logo: mediaUrl(p.logo),
-    link: safeUrl(p.link)
+    link: safeUrl(p.link),
+    linkLabel: str(p.link_label)
   })).filter((p) => p.title),
   faq: readList('faq.json').filter(isShown).map((q) => ({
     question: str(q.question),
