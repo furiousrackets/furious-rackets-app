@@ -8,7 +8,6 @@
   ],
   "group_label": "Группа в {сеть}",
   "links": [
-    "vkontakte.json",
-    "instagram.json"
+    "vkontakte.json"
   ]
 }
