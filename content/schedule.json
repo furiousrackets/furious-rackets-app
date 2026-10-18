@@ -54,6 +54,27 @@
       ],
       "price": "",
       "show": true
+    },
+    {
+      "day": "Суббота",
+      "time": "20:00–22:00",
+      "venue": "",
+      "type": "personalnaya.json",
+      "levels": [],
+      "price": 0,
+      "slot_minutes": 60,
+      "show": true
+    },
+    {
+      "day": "Воскресенье",
+      "time": "18:00–22:00",
+      "venue": "",
+      "type": "personalnaya.json",
+      "levels": [],
+      "price": 0,
+      "slot_minutes": 60,
+      "show": true
     }
-  ]
+  ],
+  "cancellations": []
 }

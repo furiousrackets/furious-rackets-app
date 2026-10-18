@@ -72,7 +72,7 @@
   <section class="hero">
     <div class="wrap hero__inner">
       <div class="hero__text">
-        <p class="eyebrow" data-hero-slogan>Больше чем бадминтон</p>
+        <p class="eyebrow" data-hero-slogan>Первая тренировка — бесплатно</p>
         <h1 class="hero__title" data-hero-heading>Бадминтон в&nbsp;Саратове</h1>
         <p class="slogan"><span class="slogan__in">Клуб «<span data-hero-title>Бешеные ракетки</span>»</span></p>
         <p class="hero__lead" data-hero-text>Мы те, кто считает, что лучший отдых — это погонять волан до седьмого пота. Всегда рады новичкам — приходи, даже если ни разу не держал ракетку.</p>
@@ -108,17 +108,19 @@
   <section class="section section--schedule" id="schedule" hidden>
     <div class="wrap">
       <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-schedule.png" alt="" width="200" height="143" loading="lazy"><h2 class="h2">Расписание</h2></div>
-      <div class="schedule" data-schedule></div>
+      <!-- неделя-календарь пн–вс со шкалой времени; цвет плитки — вид тренировки -->
+      <div class="week-wrap" data-week-wrap><div class="week" data-schedule></div></div>
+      <!-- когда неделя не помещается по ширине (телефон), она листается вбок: под календарём стрелки по центру -->
+      <div class="week-nav" data-week-nav hidden>
+        <button class="week-nav__btn" type="button" data-week-prev aria-label="Предыдущие дни"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></button>
+        <button class="week-nav__btn" type="button" data-week-next aria-label="Следующие дни"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></button>
+      </div>
 
-    </div>
-  </section>
-
-  <section class="section section--signup" id="signup" hidden>
-    <div class="wrap">
-      <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-signup.png" alt="" width="200" height="177" loading="lazy"><h2 class="h2" data-signup-title>Как записаться на тренировку</h2></div>
-      <ol class="steps auto-grid" data-steps></ol>
-      <div class="signup__actions">
-        <a class="btn btn--accent" href="#contacts" data-open-signup data-signup-label>Записаться на тренировку</a>
+      <!-- запись — под расписанием, за полоской: шаги в ряд и кнопка по центру (открывает окно «Записаться») -->
+      <div class="signup" id="signup" hidden>
+        <p class="signup__eyebrow">Как записаться</p>
+        <ol class="signup__steps" data-steps></ol>
+        <a class="btn btn--accent signup__btn" href="#contacts" data-open-signup data-signup-label>Записаться на тренировку</a>
       </div>
     </div>
   </section>

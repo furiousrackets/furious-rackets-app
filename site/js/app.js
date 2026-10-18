@@ -337,7 +337,9 @@
           'sizes="(min-width: 860px) 33vw, 100vw" width="' + esc(p.width) + '" height="' + esc(p.height) + '" ' +
           'alt="' + esc(p.alt) + '" loading="lazy" decoding="async"></div>'
         : '';
-      return '<article class="training' + (photo ? ' has-photo' : '') + '">' +
+      // цветная полоска под фото — тот же цвет, что у этой тренировки в расписании
+      var color = /^(lime|white|blue|gray|dark)$/.test(str(t.color)) ? str(t.color) : 'dark';
+      return '<article class="training training--' + color + (photo ? ' has-photo' : '') + '">' +
         photo +
         '<h3 class="training__title">' + esc(t.title) + '</h3>' +
         (str(t.html) ? '<div class="training__text rich">' + richHtml(t.html) + '</div>' : '') +
@@ -365,61 +367,245 @@
     }).join('');
   }
 
-  function renderSchedule(items) {
+  /* ---------- расписание неделей ---------- */
+
+  var WEEK = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+  var WEEK_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  var CLUB_TZ = 'Europe/Saratov';
+
+  // Сейчас в Саратове: дата, день недели (0 — понедельник … 6 — воскресенье) и минуты от полуночи
+  function clubNow() {
+    try {
+      var parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: CLUB_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+        weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).formatToParts(new Date());
+      var get = function (type) {
+        var part = parts.filter(function (p) { return p.type === type; })[0];
+        return part ? part.value : '';
+      };
+      return {
+        y: Number(get('year')), m: Number(get('month')), d: Number(get('day')),
+        minutes: Number(get('hour')) * 60 + Number(get('minute'))
+      };
+    } catch (e) {
+      var n = new Date();
+      return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), minutes: n.getHours() * 60 + n.getMinutes() };
+    }
+  }
+
+  function toMinutes(time) {
+    var m = /(\d{1,2})[:.](\d{2})/.exec(str(time));
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  }
+
+  function isoDate(utc) {
+    return new Date(utc).toISOString().slice(0, 10);
+  }
+
+  // Уровни тренировки: только нужные; если не выбраны — «все уровни»
+  function slotLevels(levels) {
+    if (!levels.length) return '<span class="slot__levels"><span class="slot__lv slot__lv--any">все уровни</span></span>';
+    return '<span class="slot__levels">' + levels.map(function (level) {
+      var hint = str(level.description);
+      return '<span class="slot__lv"' + (hint ? ' title="' + esc(level.title + ' — ' + hint) + '"' : '') + '>' +
+        esc(level.title) + '</span>';
+    }).join('') + '</span>';
+  }
+
+  var PIN_ICON = '<svg class="slot__pin" viewBox="0 0 12 16" width="10" height="13" aria-hidden="true"><path d="M6 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 6 3.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>';
+
+  // pos — место на шкале времени (минуты): top — от начала шкалы, dur — длительность,
+  // lane/lanes — если в один день тренировки пересекаются, они стоят рядом
+  function slotHtml(row, status, pos) {
+    var type = row.type || null;
+    var venue = row.venue || {};
+    var times = str(row.time).split(/[–-]/);
+    var start = str(times[0]);
+    var end = str(times[1]);
+    var price = formatPrice(row.price);
+    var where = str(venue.short) || str(venue.title);
+    var color = type && /^(lime|white|blue|gray|dark)$/.test(str(type.color)) ? str(type.color) : 'dark';
+    pos = pos || { top: 0, dur: 90, lane: 0, lanes: 1 };
+    var cls = 'slot slot--' + color + (pos.lanes > 1 ? ' slot--narrow' : '') +
+      (status ? ' is-' + status.kind : '');
+    var style = '--top:' + pos.top + ';--dur:' + pos.dur + (pos.lanes > 1 ? ';--lane:' + pos.lane + ';--lanes:' + pos.lanes : '');
+    return '<article class="' + cls + '" style="' + style + '">' +
+      (status ? '<span class="slot__status slot__status--' + status.kind + '">' + esc(status.text) + '</span>' : '') +
+      // площадка — наверху карточки, ссылка на неё в «Где играем»
+      (where ? (venue.anchor
+        ? '<a class="slot__venue slot__venue--link" href="#' + esc(venue.anchor) + '">' + PIN_ICON + '<span>' + esc(where) + '</span></a>'
+        : '<span class="slot__venue">' + PIN_ICON + '<span>' + esc(where) + '</span></span>') : '') +
+      '<span class="slot__time">' + esc(start) + (end ? '<small>–' + esc(end) + '</small>' : '') + '</span>' +
+      (type ? '<span class="slot__type">' + esc(type.title) + '</span>' : '') +
+      // у персональных уровни не показываем (галочка у вида тренировки)
+      (type && type.hideLevels ? '' : slotLevels(list(row.levels))) +
+      (price ? '<span class="slot__price">' + esc(price) + '</span>' : '') +
+      '</article>';
+  }
+
+  function rowSpan(row) {
+    var t = str(row.time).split(/[–-]/);
+    var a = toMinutes(t[0]);
+    var b = toMinutes(t[1]);
+    if (a == null) return null;
+    return { from: a, to: b != null && b > a ? b : a + 90 };
+  }
+
+  // Расписание — неделя пн–вс. На компьютере — как календарь: слева общая шкала времени,
+  // плитка стоит на своём времени начала, высота — по длительности. На телефоне — список дней.
+  // В браузере помечаем сегодняшний день (по саратовскому времени)
+  // и зачёркиваем тренировки этой недели, отменённые в админке.
+  function renderSchedule(items, cancellations) {
     var host = q('[data-schedule]');
     if (!host) return;
+    cancellations = Array.isArray(cancellations) ? cancellations : [];
 
-    host.innerHTML = items.map(function (row) {
-      var type = row.type || null;
-      var venue = row.venue || null;
-      var venueHtml = '';
-      if (venue) {
-        venueHtml = venue.anchor
-          ? '<a class="row__venue-link" href="#' + esc(venue.anchor) + '">' + esc(venue.title) + '</a>'
-          : esc(venue.title);
-      }
-      var price = formatPrice(row.price);
+    var byWeekday = WEEK.map(function () { return []; });
+    items.forEach(function (row) {
+      var d = WEEK.indexOf(str(row.dayShort).toLowerCase());
+      if (d >= 0) byWeekday[d].push(row);
+    });
 
-      return '<article class="row">' +
-        '<div class="row__day"><span class="row__day-in">' + esc(row.day) + '</span></div>' +
-        '<div class="row__time">' + esc(row.time) + '</div>' +
-        '<div class="row__meta">' +
-          (type ? '<span class="type' + (type.highlight ? ' type--play' : '') + '">' + esc(type.title) + '</span>' : '') +
-          '<span class="levels">' + levelBadges(list(row.levels)) + '</span>' +
+    // шкала — от самого раннего начала до самого позднего конца, целыми часами
+    var first = 24 * 60;
+    var last = 0;
+    items.forEach(function (row) {
+      var span = rowSpan(row);
+      if (!span) return;
+      first = Math.min(first, span.from);
+      last = Math.max(last, span.to);
+    });
+    var fromH = Math.floor(first / 60);
+    var toH = Math.ceil(last / 60);
+    if (!(toH > fromH)) { fromH = 18; toH = 22; }
+    var hours = toH - fromH;
+
+    var inBrowser = typeof window.matchMedia === 'function';
+    var today = -1;
+    var monday = 0;
+    if (inBrowser) {
+      var now = clubNow();
+      var base = Date.UTC(now.y, now.m - 1, now.d);
+      today = (new Date(base).getUTCDay() + 6) % 7;
+      monday = base - today * 86400000;
+    }
+
+    var axis = '<div class="week__axis" aria-hidden="true">';
+    for (var h = 0; h <= hours; h += 1) {
+      axis += '<span style="--i:' + h + '">' + (fromH + h) + ':00</span>';
+    }
+    axis += '</div>';
+
+    host.setAttribute('style', '--hours:' + hours);
+    host.innerHTML = axis + byWeekday.map(function (rows, d) {
+      var iso = inBrowser ? isoDate(monday + d * 86400000) : '';
+
+      // пересекающиеся тренировки одного дня ставим рядом (как в календаре)
+      var pos = [];
+      var laneEnds = [];
+      var group = [];
+      var groupEnd = -1;
+      var closeGroup = function () {
+        group.forEach(function (p) { p.lanes = laneEnds.length; });
+        laneEnds = [];
+        group = [];
+      };
+      rows.forEach(function (row, i) {
+        var span = rowSpan(row) || { from: fromH * 60, to: fromH * 60 + 90 };
+        if (span.from >= groupEnd) closeGroup();
+        var lane = 0;
+        while (lane < laneEnds.length && laneEnds[lane] > span.from) lane += 1;
+        laneEnds[lane] = span.to;
+        pos[i] = { top: span.from - fromH * 60, dur: span.to - span.from, lane: lane, lanes: 1 };
+        group.push(pos[i]);
+        groupEnd = Math.max(groupEnd, span.to);
+      });
+      closeGroup();
+
+      var slots = rows.map(function (row, i) {
+        var start = toMinutes(str(row.time).split(/[–-]/)[0]);
+        var off = iso && cancellations.filter(function (c) {
+          return c.date === iso && (c.start == null || c.start === start);
+        })[0];
+        return slotHtml(row, off ? { kind: 'off', text: 'отменена' + (str(off.reason) ? ' · ' + str(off.reason) : '') } : null, pos[i]);
+      }).join('');
+      return '<div class="week__day' + (rows.length ? '' : ' is-empty') + (d === today ? ' is-today' : '') + '">' +
+        '<div class="week__head">' +
+          '<span class="week__name"><span class="week__short">' + WEEK[d] + '</span><span class="week__full">' + WEEK_FULL[d] + '</span></span>' +
+          '<span class="week__today">сегодня</span>' +
         '</div>' +
-        '<div class="row__venue">' + venueHtml + '</div>' +
-        '<div class="row__price">' + (price ? '<span class="price">' + esc(price) + '</span>' : '') + '</div>' +
-        '</article>';
+        '<div class="week__track">' + slots + '</div>' +
+        '</div>';
     }).join('');
 
     reveal('schedule', items.length > 0);
+    if (inBrowser) setupWeekScroll(host, today);
   }
 
+  // Неделя не помещается по ширине (телефон) — листается вбок: стрелки в заголовке,
+  // затемнение у края, за которым есть ещё дни, и сразу виден сегодняшний день
+  function setupWeekScroll(host, today) {
+    var wrap = host.closest('[data-week-wrap]') || host.parentNode;
+    var nav = q('[data-week-nav]');
+    var prev = q('[data-week-prev]');
+    var next = q('[data-week-next]');
+    var days = host.querySelectorAll('.week__day');
+    var axis = host.querySelector('.week__axis');
+
+    function dayWidth() {
+      return days[0] ? days[0].getBoundingClientRect().width : 112;
+    }
+    function update() {
+      var max = host.scrollWidth - host.clientWidth;
+      var scrollable = max > 1;
+      if (nav) nav.hidden = !scrollable;
+      wrap.classList.toggle('can-left', scrollable && host.scrollLeft > 1);
+      wrap.classList.toggle('can-right', scrollable && host.scrollLeft < max - 1);
+      if (prev) prev.disabled = !(host.scrollLeft > 1);
+      if (next) next.disabled = !(host.scrollLeft < max - 1);
+    }
+
+    if (today > 0 && days[today] && host.scrollWidth > host.clientWidth + 1) {
+      host.scrollLeft = days[today].offsetLeft - (axis ? axis.offsetWidth : 0);
+    }
+    if (!host.dataset.scrollReady) {
+      host.dataset.scrollReady = '1';
+      host.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      if (prev) prev.addEventListener('click', function () { host.scrollBy({ left: -dayWidth(), behavior: 'smooth' }); });
+      if (next) next.addEventListener('click', function () { host.scrollBy({ left: dayWidth(), behavior: 'smooth' }); });
+    }
+    update();
+  }
+
+  // Запись под расписанием: шаги и кнопка
   function renderSignup(block) {
     var data = block || {};
     var steps = list(data.steps);
-    var host = q('[data-steps]');
-    var isVisible = data.show !== false && steps.length > 0;
+    var isVisible = data.show !== false;
 
+    var host = q('[data-steps]');
     if (host) {
       host.innerHTML = steps.map(function (step, index) {
-        return '<li class="step">' +
-          '<span class="step__num" aria-hidden="true">' + (index + 1) + '</span>' +
-          (str(step.title) ? '<h3 class="step__title">' + esc(step.title) + '</h3>' : '') +
-          (str(step.html) ? '<div class="step__text rich">' + richHtml(step.html) + '</div>' : '') +
+        return '<li class="signup__step">' +
+          '<span class="signup__num" aria-hidden="true">' + (index + 1) + '</span>' +
+          '<div>' +
+            (str(step.title) ? '<h3 class="signup__step-title">' + esc(step.title) + '</h3>' : '') +
+            (str(step.html) ? '<div class="signup__step-text rich">' + richHtml(step.html) + '</div>' : '') +
+          '</div>' +
           '</li>';
       }).join('');
-      layoutGrid(host, steps.length, 4);
+      host.hidden = !steps.length;
     }
 
-    setText('[data-signup-title]', data.title);
     qa('[data-signup-label]').forEach(function (node) {
       if (str(data.buttonLabel)) node.textContent = str(data.buttonLabel);
     });
     setText('[data-sheet-title]', data.sheetTitle);
     setText('[data-sheet-text]', data.sheetText);
 
-    // Без JS кнопки «Записаться» ведут к этому блоку, если он показан, иначе к контактам
+    // Без JS кнопки «Записаться» ведут к записи под расписанием, если она показана, иначе к контактам
     qa('a[data-open-signup]').forEach(function (node) {
       node.setAttribute('href', isVisible ? '#signup' : '#contacts');
     });
@@ -1166,7 +1352,7 @@
 
     renderStrip(data.strip);
     renderTrainings(list(data.trainings));
-    renderSchedule(list(data.schedule));
+    renderSchedule(list(data.schedule), data.cancellations);
     renderSignup(data.signup);
     renderVenues(list(data.venues));
     renderCoaches(list(data.coaches));

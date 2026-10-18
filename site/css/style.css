@@ -2,6 +2,7 @@
   --bg: #000000;
   --acc: #B6F024;
   --acc-dark: #8FC40F;
+  --sky: #8EC3E6;        /* голубой — как стены залов на фото; второй цвет после салатового */
   --panel: #0F110C;
   --line: #2A3020;
   --text: #FFFFFF;
@@ -390,53 +391,6 @@ p { margin: 0 0 1em; }
   min-width: 0;
 }
 
-/* ---------- как записаться ---------- */
-
-.steps {
-  --grid-gap: 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.step {
-  background: var(--panel);
-  padding: 24px 22px;
-}
-
-.step__num {
-  display: block;
-  margin: 0 0 14px;
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-style: italic;
-  font-size: 48px;
-  line-height: 1;
-  color: var(--acc);
-}
-
-.step__title {
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-style: italic;
-  text-transform: uppercase;
-  font-size: 22px;
-  line-height: 1.05;
-  margin: 0 0 10px;
-}
-
-.step__text {
-  margin: 0;
-  color: var(--muted);
-}
-
-.signup__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 18px;
-  margin-top: 30px;
-}
-
 .final__groups {
   display: flex;
   flex-wrap: wrap;
@@ -453,7 +407,15 @@ p { margin: 0 0 1em; }
 .training {
   background: var(--panel);
   padding: 24px 22px 28px;
+  /* цветная полоска — цвет этой тренировки в расписании: под фото, а без фото — сверху */
+  border-top: 4px solid var(--tag, var(--line));
 }
+.training.has-photo { border-top: 0; }
+.training.has-photo > .training__media { border-bottom: 4px solid var(--tag, var(--line)); }
+.training--lime { --tag: var(--acc); }
+.training--white { --tag: #f1f2ec; }
+.training--blue { --tag: var(--sky); }
+.training--gray { --tag: #535a49; }
 
 .training__title {
   font-family: var(--font-head);
@@ -486,94 +448,312 @@ p { margin: 0 0 1em; }
   object-fit: cover;
 }
 
-/* ---------- расписание ---------- */
+/* ---------- расписание: неделя-календарь ---------- */
 
-.schedule {
-  border-top: 1px solid var(--line);
+/* Как в Google Календаре: слева шкала времени, 7 колонок пн–вс. Час — var(--hour) по высоте,
+   плитка стоит на своём времени (--top, минуты от начала шкалы), высота — по длительности (--dur).
+   Колонка не уже var(--col): на телефоне неделя листается вбок — шкала времени остаётся на месте,
+   у края затемнение, в заголовке стрелки, при открытии виден сегодняшний день. */
+.week-wrap { position: relative; }
+.week {
+  --hour: 92px;
+  --head: 38px;
+  --axis: 40px;
+  --col: 112px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--axis) repeat(7, minmax(var(--col), 1fr));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: var(--axis);
+  scrollbar-width: none;
+}
+.week::-webkit-scrollbar { display: none; }
+
+/* затемнение у края, за которым есть ещё дни */
+.week-wrap::before,
+.week-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 40px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+.week-wrap::before { left: 40px; width: 16px; background: linear-gradient(to right, rgba(0, 0, 0, 0.7), transparent); }
+.week-wrap::after { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+.week-wrap.can-left::before,
+.week-wrap.can-right::after { opacity: 1; }
+
+/* под календарём по центру: стрелки — листают по дню */
+.week-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.week-nav[hidden] { display: none; }
+.week-nav__btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--acc);
+  background: transparent;
+  color: var(--acc);
+  cursor: pointer;
+  transition: background 0.15s linear, color 0.15s linear, opacity 0.15s linear;
+}
+.week-nav__btn:hover:not(:disabled),
+.week-nav__btn:active:not(:disabled) { background: var(--acc); color: #000; }
+.week-nav__btn:disabled { border-color: var(--line); color: #59604c; cursor: default; }
+
+.week__axis {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  /* +12px снизу — чтобы влезла подпись последнего часа */
+  height: calc(var(--head) + var(--hours, 4) * var(--hour) + 12px);
+  background: var(--bg);
+}
+.week__axis span {
+  position: absolute;
+  right: 8px;
+  top: calc(var(--head) + var(--i) * var(--hour));
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7360;
+  font-variant-numeric: tabular-nums;
 }
 
-.row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "day day"
-    "time price"
-    "meta meta"
-    "venue venue";
-  align-items: center;
-  gap: 8px 14px;
-  padding: 18px 0;
+.week__day {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+/* последний день — к правому краю, чтобы воскресенье было видно целиком */
+.week__day:last-child { scroll-snap-align: end; }
+.week__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: var(--head);
+  padding: 0 6px 8px;
   border-bottom: 1px solid var(--line);
 }
-
-.row + .row { padding-top: 20px; }
-
-.row__day { grid-area: day; }
-.row__time { grid-area: time; }
-.row__price { grid-area: price; }
-.row__meta { grid-area: meta; }
-.row__venue { grid-area: venue; }
-
-.row__day-in {
-  display: inline-block;
-  transform: var(--skew);
-  background: var(--acc);
-  color: #000;
-  padding: 4px 14px;
+.week__name {
   font-family: var(--font-head);
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 17px;
+  font-size: 18px;
   letter-spacing: 0.02em;
-}
-
-.row__time {
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 30px;
   line-height: 1;
-  letter-spacing: 0.01em;
+  color: var(--text);
+}
+.week__full { display: none; }
+.week__day.is-empty .week__name { color: #59604c; }
+.week__day.is-today .week__name { color: var(--acc); }
+.week__today {
+  display: none;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--acc);
+  border: 1px solid var(--acc);
+  padding: 2px 5px;
+}
+.week__day.is-today .week__today { display: inline-block; }
+
+/* линии каждого часа и вертикальные разделители дней */
+.week__track {
+  position: relative;
+  height: calc(var(--hours, 4) * var(--hour));
+  border-left: 1px solid var(--line);
+  background-image: repeating-linear-gradient(to bottom,
+    transparent 0, transparent calc(var(--hour) - 1px),
+    var(--line) calc(var(--hour) - 1px), var(--line) var(--hour));
+}
+.week__day:last-child .week__track { border-right: 1px solid var(--line); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.row__price { text-align: right; }
+/* Плитка тренировки целиком в цвет вида тренировки (выбирается в админке у вида):
+   салатовый, белый, голубой, серый, тёмный. Заполняет свои ячейки, между плитками видны линии часов */
+.slot {
+  --slot-bg: var(--panel);
+  --slot-fg: var(--text);
+  --slot-muted: var(--muted);
+  --slot-chip: var(--acc);
+  --slot-chip-fg: #000;
+  position: absolute;
+  top: calc(var(--top, 0) * var(--hour) / 60);
+  height: calc(var(--dur, 90) * var(--hour) / 60 - 1px);
+  left: calc(100% * var(--lane, 0) / var(--lanes, 1));
+  width: calc(100% / var(--lanes, 1));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px;
+  overflow: hidden;
+  background: var(--slot-bg);
+  color: var(--slot-fg);
+  /* в узкой плитке длинное название («Персональная») уменьшается под ширину */
+  container-type: inline-size;
+}
+.slot--lime {
+  --slot-bg: var(--acc);
+  --slot-fg: #000;
+  --slot-muted: rgba(0, 0, 0, 0.6);
+  --slot-chip: #000;
+  --slot-chip-fg: var(--acc);
+}
+.slot--blue {
+  --slot-bg: var(--sky);
+  --slot-fg: #000;
+  --slot-muted: rgba(0, 0, 0, 0.55);
+  --slot-chip: #000;
+  --slot-chip-fg: var(--sky);
+}
+.slot--white {
+  --slot-bg: #f1f2ec;
+  --slot-fg: #000;
+  --slot-muted: rgba(0, 0, 0, 0.55);
+  --slot-chip: #000;
+  --slot-chip-fg: #fff;
+}
+.slot--gray {
+  --slot-bg: #535a49;
+  --slot-muted: rgba(255, 255, 255, 0.7);
+}
 
-.price {
-  display: inline-block;
-  background: var(--acc);
-  color: #000;
-  padding: 9px 16px;
+/* отменённая — пунктирная рамка без заливки, время зачёркнуто */
+.slot.is-off {
+  --slot-bg: transparent;
+  --slot-fg: var(--muted);
+  --slot-muted: #6b7360;
+  --slot-chip: #2a3020;
+  --slot-chip-fg: var(--muted);
+  border: 1px dashed #3a4130;
+}
+.slot.is-off .slot__time { text-decoration: line-through; }
+
+.slot__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slot-fg);
+}
+/* время в одну строку: начало крупно, конец мельче */
+.slot__time {
   font-family: var(--font-head);
   font-weight: 700;
   font-size: 20px;
   line-height: 1;
   white-space: nowrap;
-  clip-path: polygon(
-    5px 0, 100% 0,
-    calc(100% - 5px) 14%, 100% 30%,
-    calc(100% - 4px) 50%, 100% 70%,
-    calc(100% - 5px) 86%, 100% 100%,
-    5px 100%, 0 86%,
-    4px 70%, 0 50%,
-    4px 30%, 0 14%
-  );
+}
+.slot__time small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--slot-muted);
+}
+.slot__type {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: clamp(10px, 11cqi, 17px);
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+/* площадка — наверху: метка и название заглавными */
+.slot__venue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--slot-fg);
+}
+.slot__venue span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot__pin { flex: none; }
+.slot__venue--link { text-decoration: none; }
+.slot__venue--link span {
+  border-bottom: 1px solid currentColor;
+  transition: opacity 0.15s linear;
+}
+.slot__venue--link:hover span { opacity: 0.65; }
+.slot__venue--link:focus-visible { outline: 2px solid var(--slot-fg); outline-offset: 2px; }
+.slot__price {
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.row__meta {
+/* уровни тренировки — только нужные; без уровней — «все уровни» */
+.slot__levels {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  gap: 3px;
+  margin-top: 4px;
 }
+.slot__lv {
+  min-width: 22px;
+  padding: 3px 5px;
+  background: var(--slot-chip);
+  color: var(--slot-chip-fg);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+.slot__lv--any { text-transform: none; }
 
-.type {
-  font-family: var(--font-head);
-  font-weight: 500;
-  text-transform: uppercase;
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+/* пересекающиеся тренировки стоят рядом — плитки узкие, всё мельче и обрезается многоточием */
+.slot--narrow { width: calc(100% / var(--lanes, 1) - 1px); padding: 6px; }
+.slot--narrow .slot__time small { display: none; }
+.slot--narrow .slot__type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
-.type--play { color: var(--acc); }
 
 .levels {
   display: inline-flex;
@@ -592,17 +772,92 @@ p { margin: 0 0 1em; }
 }
 .level--any { text-transform: none; font-weight: 600; letter-spacing: 0; }
 
-.row__venue {
-  color: var(--muted);
-  font-size: 14px;
+/* На компьютере календарь помещается целиком — всё крупнее */
+@media (min-width: 1150px) {
+  .week {
+    --hour: 120px;
+    --head: 46px;
+    --axis: 48px;
+    grid-template-columns: var(--axis) repeat(7, minmax(0, 1fr));
+  }
+  .week__axis span { right: 10px; font-size: 12px; }
+  .week__head { padding: 0 8px 10px; }
+  .week__name { font-size: 22px; }
+  .week__today { font-size: 11px; padding: 2px 7px; }
+
+  .slot { gap: 4px; padding: 12px; }
+  .slot__time { font-size: 26px; margin-bottom: 2px; }
+  .slot__time small { font-size: 15px; }
+  .slot__type { margin-top: 4px; }
+  .slot__venue { gap: 6px; margin-bottom: 4px; font-size: 13px; letter-spacing: 0.06em; }
+  .slot__price { padding-top: 8px; font-size: 20px; }
+  .slot__levels { gap: 4px; margin-top: 6px; }
+  .slot__lv { min-width: 26px; padding: 4px 6px; font-size: 12px; }
+  .slot__status { font-size: 11px; }
+  .slot--narrow { padding: 8px; }
+  .slot--narrow .slot__time { font-size: 18px; }
+  .slot--narrow .slot__price { font-size: 15px; }
+  .slot--narrow .slot__type { font-size: 11px; }
 }
 
-.row__venue-link {
-  color: var(--muted);
-  text-decoration: none;
-  border-bottom: 1px solid var(--line);
+/* ---------- запись: под расписанием ---------- */
+
+/* За полоской: «Как записаться», шаги в ряд (на телефоне — столбиком) и кнопка по центру */
+.signup {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 44px;
+  scroll-margin-top: calc(var(--header-h) + 24px);
 }
-.row__venue-link:hover { color: var(--acc); border-color: var(--acc); }
+.signup__eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.signup__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.signup__step {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+}
+.signup__num {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--acc);
+}
+.signup__step-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 19px;
+  line-height: 1.1;
+  margin: 2px 0 6px;
+}
+.signup__step-text { color: var(--muted); font-size: 15px; }
+.signup__step-text p { margin: 0; }
+
+.signup__btn { display: block; margin-top: 4px; padding: 14px 18px; font-size: 16px; }
+
+@media (min-width: 900px) {
+  .signup { gap: 26px; margin-top: 44px; padding-top: 32px; }
+  .signup__steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+  .signup__btn { align-self: center; display: inline-block; padding: 16px 40px; font-size: 17px; }
+}
 
 /* ---------- акции ---------- */
 
@@ -1174,6 +1429,13 @@ p { margin: 0 0 1em; }
 }
 
 .card__where { color: var(--muted); }
+/* ссылка на площадку в акциях и турнирах */
+.row__venue-link {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+.row__venue-link:hover { color: var(--acc); border-color: var(--acc); }
 
 /* ---------- партнёры ---------- */
 
@@ -1426,7 +1688,6 @@ p { margin: 0 0 1em; }
    Отступы задаёт gap, собственные margin у элементов обнулены, чтобы не складывались. */
 
 .training,
-.step,
 .coach__body,
 .promo__body,
 .tournament__body {
@@ -1437,7 +1698,6 @@ p { margin: 0 0 1em; }
 }
 
 .training > *,
-.step > *,
 .coach__body > *,
 .promo__body > *,
 .tournament__body > * { margin: 0; }
@@ -1447,7 +1707,6 @@ p { margin: 0 0 1em; }
 .promo__body > .btn,
 .tournament__body > .btn { margin-top: 6px; }
 
-.step > .step__num { margin-bottom: 2px; }
 
 /* Акции и турниры в несколько колонок: карточки одной высоты, заголовки
    занимают место под две строки, кнопка прижата к низу — всё в ряду на одном уровне */
@@ -1679,25 +1938,6 @@ p { margin: 0 0 1em; }
 
   .section { padding: 88px 0; }
 
-  .row {
-    grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.8fr) minmax(170px, 1.1fr) minmax(0, 1.2fr) auto;
-    gap: 20px;
-    padding: 22px 0;
-  }
-
-  .row { grid-template-areas: none; }
-  .row + .row { padding-top: 22px; }
-  .row__day,
-  .row__time,
-  .row__price,
-  .row__meta,
-  .row__venue { grid-area: auto; }
-
-  .row__day-in { font-size: 21px; padding: 5px 16px; }
-  .row__time { font-size: 34px; }
-  .row__meta { flex-direction: column; align-items: flex-start; gap: 7px; }
-  .row__venue { font-size: 15px; }
-  .price { font-size: 23px; padding: 11px 20px; }
 }
 
 @media (min-width: 1080px) {

@@ -1,9 +1,10 @@
 {
   "title": "Персональная",
-  "description": "Один на один с тренером: разбираем твою технику и то, что не получается. Условия и запись — у тренера.",
+  "description": "Тренер разбирает твою технику и ошибки, подбирает упражнения под твои задачи. Один на один, вдвоём или мини-группой из 4 человек.",
   "photo": "media/venues/sgmu-3.jpg",
-  "highlight": false,
-  "coaches_link": true,
+  "color": "blue",
+  "hide_levels": true,
+  "coaches_link": false,
   "order": 30,
   "show": true
 }

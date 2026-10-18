@@ -183,6 +183,14 @@ const levels = readCollection('levels').map((l) => ({
   order: num(l.order)
 }));
 const levelOrder = new Map(levels.map((l, i) => [l.id, i]));
+
+// Цвет карточки вида тренировки в расписании; старое «Выделять» = салатовый
+const TYPE_COLORS = ['lime', 'white', 'blue', 'gray', 'dark'];
+function typeColor(type) {
+  const color = str(type.color);
+  if (TYPE_COLORS.includes(color)) return color;
+  return type.highlight === true ? 'lime' : 'dark';
+}
 const findLevel = makeIndex(levels, 'уровень');
 
 /* ---------- Markdown ---------- */
@@ -217,6 +225,14 @@ function placeholder(name) {
   return network ? networkLink(network) : null;
 }
 
+// Одна строка: только *выделение*, без абзацев
+function inlineMarkdown(value, where) {
+  const source = str(value);
+  if (!source) return '';
+  // неразрывный пробел перед тире — чтобы тире не уезжало в начало строки
+  return marked.parseInline(source).trim().replace(/ (—|–) /g, '\u00a0$1 ');
+}
+
 function markdown(value, where) {
   const source = str(value);
   if (!source) return '';
@@ -246,6 +262,7 @@ function venueRef(venue) {
   if (!venue) return null;
   return {
     title: str(venue.full_name) || str(venue.title),
+    short: str(venue.title) || str(venue.full_name),
     anchor: venueAnchor.get(venue.id) || ''
   };
 }
@@ -278,6 +295,52 @@ function startMinutes(time) {
   return m ? Number(m[1]) * 60 + Number(m[2]) : 24 * 60;
 }
 
+// Строка, поделённая на отдельные занятия (у персональных): 18:00–22:00 по 60 мин →
+// карточки 18:00–19:00, 19:00–20:00, 20:00–21:00, 21:00–22:00
+function splitIntoSessions(time, len, where) {
+  if (!len) return null;
+  const m = /(\d{1,2})[:.](\d{2})\s*[–—-]\s*(\d{1,2})[:.](\d{2})/.exec(str(time));
+  if (!m || len < 15) {
+    warn(`${where}: не получается поделить время на занятия по ${len} мин`);
+    return null;
+  }
+  const from = Number(m[1]) * 60 + Number(m[2]);
+  const to = Number(m[3]) * 60 + Number(m[4]);
+  const hhmm = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+  const times = [];
+  for (let t = from; t + len <= to; t += len) times.push(`${hhmm(t)}–${hhmm(t + len)}`);
+  if (!times.length) {
+    warn(`${where}: время короче одного занятия (${len} мин)`);
+    return null;
+  }
+  if ((to - from) % len) warn(`${where}: время не делится ровно на занятия по ${len} мин — хвост не показан`);
+  return times;
+}
+
+// Отмены на конкретные даты: { date: '2026-12-31', start: минуты от полуночи или null, reason }
+const scheduleFile = readObject('schedule.json');
+const cancellations = (Array.isArray(scheduleFile.cancellations) ? scheduleFile.cancellations : [])
+  .filter(isObject)
+  .map((c, i) => {
+    const raw = str(c.date);
+    let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    if (!m) {
+      const ru = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(raw);
+      if (ru) m = [raw, ru[3], ru[2].padStart(2, '0'), ru[1].padStart(2, '0')];
+    }
+    if (!m) {
+      if (raw) warn(`Расписание, отмена ${i + 1}: не понимаю дату «${raw}»`);
+      return null;
+    }
+    const t = /(\d{1,2})[:.](\d{2})/.exec(str(c.time));
+    return {
+      date: `${m[1]}-${m[2]}-${m[3]}`,
+      start: t ? Number(t[1]) * 60 + Number(t[2]) : null,
+      reason: str(c.reason)
+    };
+  })
+  .filter(Boolean);
+
 const schedule = readList('schedule.json').filter(isShown).map((row, i) => {
   const where = `Расписание, строка ${i + 1} (${str(row.day)} ${str(row.time)})`;
   const type = findType(row.type, where);
@@ -287,20 +350,26 @@ const schedule = readList('schedule.json').filter(isShown).map((row, i) => {
     .filter(Boolean)
     .sort((a, b) => levelOrder.get(b.id) - levelOrder.get(a.id))   // от сильных к новичкам
     .map((l) => ({ title: l.title, description: l.description }));
-  const price = (num(row.price) || null) ?? (venue ? num(venue.price) || null : null);
+  // пусто — цена площадки; 0 — без цены (например, у персональных, пока цена не указана)
+  const price = num(row.price) === 0 ? null : (num(row.price) || null) ?? (venue ? num(venue.price) || null : null);
   const d = dayIndex(row.day);
-  return {
+  const base = {
     day: str(row.day),
     dayShort: DAY_SHORT[d] || str(row.day).slice(0, 2).toLowerCase(),
     time: str(row.time).replace(/\s*-\s*/, '–'),
-    type: type ? { title: str(type.title), highlight: type.highlight === true } : null,
+    type: type ? { title: str(type.title), color: typeColor(type), ...(type.hide_levels === true ? { hideLevels: true } : {}) } : null,
     venue: venueRef(venue),
     venueId: venue ? venue.id : '',
     levels: rowLevels,
     price,
     _sort: [d, startMinutes(row.time), i]
   };
-}).sort((a, b) => a._sort[0] - b._sort[0] || a._sort[1] - b._sort[1] || a._sort[2] - b._sort[2])
+  // «Занятия по, мин» — каждое занятие отдельной карточкой
+  const sessions = splitIntoSessions(row.time, num(row.slot_minutes), where);
+  return sessions
+    ? sessions.map((time) => ({ ...base, time, _sort: [d, startMinutes(time), i] }))
+    : [base];
+}).flat().sort((a, b) => a._sort[0] - b._sort[0] || a._sort[1] - b._sort[1] || a._sort[2] - b._sort[2])
   .map(({ _sort, ...row }) => row);
 
 /* ---------- фото: сжатие и несколько размеров ----------
@@ -414,6 +483,7 @@ for (const t of trainingTypes.filter(isShown)) {
     title,
     html: markdown(t.description, `Вид тренировки «${title}»`),
     coachesLink: t.coaches_link === true && coaches.length > 0,
+    color: typeColor(t),
     photo
   });
 }
@@ -479,12 +549,12 @@ const data = {
   hero: { heading: str(hero.heading), title: str(hero.title), slogan: str(hero.slogan), text: str(hero.text) },
   trainings,
   schedule: schedule.map(({ venueId, ...row }) => row),
+  cancellations,
   signup: {
     show: signup.show !== false,
-    title: str(signup.title),
     steps: (Array.isArray(signup.steps) ? signup.steps : []).filter(isObject).map((s, i) => ({
       title: str(s.title),
-      html: markdown(s.text, `Как записаться, шаг ${i + 1}`)
+      html: markdown(s.text, `Запись, шаг ${i + 1}`)
     })).filter((s) => s.title || s.html),
     // окно «Записаться»: каналы — сети с отметкой в «Контактах и соцсетях» и телефон
     buttonLabel: str(signup.button_label) || 'Записаться на тренировку',
