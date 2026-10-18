@@ -220,11 +220,18 @@
   </div>
 </div>
 
-<!-- Просмотр фото площадок на весь экран -->
+<!-- Просмотр фото на весь экран: все фото маленькими плитками или по одному, как карусель -->
 <div class="lightbox" data-lightbox hidden role="dialog" aria-modal="true" aria-label="Фото">
-  <button class="lightbox__close" type="button" data-lightbox-close aria-label="Закрыть">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-  </button>
+  <div class="lightbox__bar">
+    <button class="lightbox__all" type="button" data-lightbox-all aria-label="Все фото плитками">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+    </button>
+    <p class="lightbox__title"></p>
+    <button class="lightbox__close" type="button" data-lightbox-close aria-label="Закрыть">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="lightbox__grid" data-lightbox-grid></div>
   <button class="lightbox__nav lightbox__nav--prev" type="button" data-lightbox-prev aria-label="Предыдущее фото">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
   </button>

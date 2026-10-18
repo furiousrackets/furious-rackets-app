@@ -752,6 +752,7 @@
 
   var STRIP_SPEED = 28;        // пикселей в секунду
   var STRIP_RESUME_MS = 3500;  // через сколько продолжить после ручного листания
+  var STRIP_MAX = 18;          // сколько фото в ленте (каждый раз случайные)
 
   function stripItem(p, index, clone) {
     return '<a class="strip__item' + (clone ? ' is-clone' : '') + '" href="' + safeUrl(p.full) + '" data-gallery="strip" data-index="' + index + '"' +
@@ -774,7 +775,9 @@
   function renderStrip(block) {
     var host = q('[data-strip]');
     if (!host) return;
-    var photos = shuffle(list(block && block.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); }));
+    // каждый раз в новом порядке и не больше STRIP_MAX — фото площадок много, страница не должна тяжелеть
+    var photos = shuffle(list(block && block.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); }))
+      .slice(0, STRIP_MAX);
 
     host.innerHTML = photos.map(function (p, index) { return stripItem(p, index, false); }).join('');
 
@@ -931,11 +934,15 @@
 
   /* ---------- просмотр фото на весь экран ---------- */
 
+  /* Просмотр фото на весь экран. Два состояния: все фото маленькими плитками
+     (открывается с плитки «+N» в сетке площадки или кнопкой в углу) и по одному —
+     как карусель: стрелки, свайп, клавиши ← →. С любой плитки — сразу это фото. */
   var gallery = {
     root: null,
     sets: {},
     current: null,
     index: 0,
+    mode: 'photo',
     lastFocus: null,
 
     add: function (name, title, photos) {
@@ -948,6 +955,38 @@
       list(venues).forEach(function (v) {
         this.add(v.anchor, v.short || v.title, v.photos);
       }, this);
+    },
+
+    // все фото набора — маленькими плитками
+    renderGrid: function () {
+      var set = this.sets[this.current];
+      var grid = this.root.querySelector('[data-lightbox-grid]');
+      if (!set || !grid || grid.getAttribute('data-set') === this.current) return;
+      grid.innerHTML = set.photos.map(function (p, i) {
+        return '<button class="lightbox__thumb" type="button" data-lightbox-thumb="' + i + '" aria-label="Фото ' + (i + 1) + '">' +
+          '<img src="' + safeUrl(p.thumb || p.src) + '" srcset="' + esc(p.srcset) + '" sizes="(min-width: 860px) 200px, 34vw" ' +
+          'alt="" loading="lazy" decoding="async"></button>';
+      }).join('');
+      grid.setAttribute('data-set', this.current);
+    },
+
+    setMode: function (mode) {
+      var set = this.sets[this.current];
+      this.mode = mode;
+      this.root.classList.toggle('is-grid', mode === 'grid');
+      this.root.classList.toggle('is-photo', mode === 'photo');
+      var title = this.root.querySelector('.lightbox__title');
+      if (mode === 'grid') {
+        this.renderGrid();
+        title.textContent = set ? set.title + ' · ' + set.photos.length + ' фото' : '';
+        var img = this.root.querySelector('.lightbox__img');
+        img.removeAttribute('src');
+        // плитка фото, которое только что смотрели, — в поле зрения
+        var thumb = this.root.querySelector('[data-lightbox-thumb="' + this.index + '"]');
+        if (thumb && thumb.scrollIntoView) thumb.scrollIntoView({ block: 'nearest' });
+      } else {
+        title.textContent = '';
+      }
     },
 
     show: function (index) {
@@ -963,20 +1002,30 @@
         set.title + ' · ' + (this.index + 1) + ' из ' + count;
       var single = count < 2;
       qa('.lightbox__nav').forEach(function (b) { b.hidden = single; });
+      this.root.querySelector('.lightbox__all').hidden = single;
       // заранее подгружаем соседние фото, чтобы листалось без пауз
       [1, -1].forEach(function (step) {
         var next = set.photos[(this.index + step + count) % count];
         if (next) new Image().src = next.full;
       }, this);
+      if (this.mode !== 'photo') this.setMode('photo');
     },
 
-    open: function (name, index) {
+    open: function (name, index, mode) {
       if (!this.root || !this.sets[name]) return false;
       this.current = name;
       this.lastFocus = document.activeElement;
       this.root.hidden = false;
       document.documentElement.classList.add('is-locked');
-      this.show(index);
+      this.index = index || 0;
+      if (mode === 'grid' && this.sets[name].photos.length > 1) {
+        this.setMode('grid');
+        var grid = this.root.querySelector('[data-lightbox-grid]');
+        if (grid) grid.scrollTop = 0;
+      } else {
+        this.mode = '';
+        this.show(this.index);
+      }
       var close = this.root.querySelector('.lightbox__close');
       if (close) close.focus({ preventScroll: true });
       return true;
@@ -1000,28 +1049,35 @@
         if (!target || !target.closest) return;
         var link = target.closest('[data-gallery]');
         if (link) {
-          if (self.open(link.getAttribute('data-gallery'), Number(link.getAttribute('data-index')) || 0)) {
+          // плитка «+N» в сетке площадки открывает все фото плитками
+          var more = Array.prototype.slice.call(link.querySelectorAll('.venue__more')).filter(function (m) { return getComputedStyle(m).display !== 'none'; })[0];
+          if (self.open(link.getAttribute('data-gallery'), Number(link.getAttribute('data-index')) || 0, more ? 'grid' : 'photo')) {
             event.preventDefault();
           }
           return;
         }
         if (self.root.hidden) return;
-        if (target.closest('[data-lightbox-prev]')) self.show(self.index - 1);
+        var thumb = target.closest('[data-lightbox-thumb]');
+        if (thumb) self.show(Number(thumb.getAttribute('data-lightbox-thumb')) || 0);
+        else if (target.closest('[data-lightbox-all]')) self.setMode('grid');
+        else if (target.closest('[data-lightbox-prev]')) self.show(self.index - 1);
         else if (target.closest('[data-lightbox-next]')) self.show(self.index + 1);
-        else if (target.closest('[data-lightbox-close]') || !target.closest('.lightbox__figure')) self.close();
+        else if (target.closest('[data-lightbox-close]')) self.close();
+        else if (self.mode === 'photo' && !target.closest('.lightbox__figure, .lightbox__bar')) self.close();
       });
 
       document.addEventListener('keydown', function (event) {
         if (self.root.hidden) return;
         if (event.key === 'Escape') self.close();
+        else if (self.mode !== 'photo') return;
         else if (event.key === 'ArrowLeft') self.show(self.index - 1);
         else if (event.key === 'ArrowRight') self.show(self.index + 1);
       });
 
-      // свайп влево/вправо на телефоне
+      // свайп влево/вправо на телефоне — только когда смотрим по одному
       var startX = null;
       self.root.addEventListener('touchstart', function (event) {
-        startX = event.touches.length === 1 ? event.touches[0].clientX : null;
+        startX = self.mode === 'photo' && event.touches.length === 1 ? event.touches[0].clientX : null;
       }, { passive: true });
       self.root.addEventListener('touchend', function (event) {
         if (startX === null) return;
@@ -1031,6 +1087,7 @@
       });
     }
   };
+
 
   function renderCoaches(items) {
     var host = q('[data-coaches]');
