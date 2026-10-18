@@ -10,14 +10,19 @@
 //
 // Запуск: npm run build  (на GitHub это делает workflow перед публикацией)
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
+import sharp from 'sharp';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CONTENT = join(ROOT, 'content');
 const OUT = join(ROOT, 'site', 'data.json');
+const SITE = join(ROOT, 'site');
+// Уменьшенные копии фото (WebP) — собираются здесь, в git не хранятся
+const GEN = 'gen';
+const PHOTO_WIDTHS = [320, 640, 1024, 1600];
 
 const DAYS = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
 const DAY_SHORT = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
@@ -245,12 +250,21 @@ function venueRef(venue) {
   };
 }
 
-const coaches = readCollection('coaches').filter(isShown).map((c) => ({
-  title: str(c.title),
-  photo: mediaUrl(c.photo),
-  html: markdown(c.about, `Тренер «${str(c.title)}»`),
-  telegram: safeUrl(c.telegram)
-})).filter((c) => c.title);
+// Фото тренера тоже сжимаем; если сжать не вышло (например, ссылка на другой сайт) — берём как есть
+const coaches = [];
+for (const c of readCollection('coaches').filter(isShown)) {
+  const title = str(c.title);
+  if (!title) continue;
+  const photo = await photoVariants(c.photo, `Тренер «${title}»`);
+  coaches.push({
+    title,
+    photo: photo ? photo.src : mediaUrl(c.photo),
+    photoSrcset: photo ? photo.srcset : '',
+    photoAlt: `${title} — тренер по бадминтону клуба «Бешеные ракетки», Саратов`,
+    html: markdown(c.about, `Тренер «${title}»`),
+    telegram: safeUrl(c.telegram)
+  });
+}
 
 /* ---------- расписание ---------- */
 
@@ -289,33 +303,149 @@ const schedule = readList('schedule.json').filter(isShown).map((row, i) => {
 }).sort((a, b) => a._sort[0] - b._sort[0] || a._sort[1] - b._sort[1] || a._sort[2] - b._sort[2])
   .map(({ _sort, ...row }) => row);
 
+/* ---------- фото: сжатие и несколько размеров ----------
+   Админ загружает фото как есть (хоть 5 МБ с телефона). Сборка делает из каждого
+   WebP-копии шириной 320/640/1024/1600 px — браузер сам берёт подходящую по экрану.
+   Копии кешируются: пересобираются, только если исходник новее. */
+
+async function photoVariants(path, where) {
+  const rel = mediaUrl(path);
+  if (!rel || /^https?:/i.test(rel)) return null;
+  const src = join(SITE, rel);
+  if (!existsSync(src)) {
+    warn(`${where}: нет файла site/${rel}`);
+    return null;
+  }
+  try {
+    const image = sharp(src).rotate();   // rotate() — по EXIF, чтобы фото с телефона не лежали на боку
+    const meta = await image.metadata();
+    const portrait = (meta.orientation || 1) >= 5;
+    const srcW = portrait ? meta.height : meta.width;
+    const srcH = portrait ? meta.width : meta.height;
+    const base = rel.replace(/^media\//, '').slice(0, -extname(rel).length || undefined);
+    const srcTime = statSync(src).mtimeMs;
+    const widths = [...new Set(PHOTO_WIDTHS.map((w) => Math.min(w, srcW)))];
+    const files = [];
+    for (const w of widths) {
+      const out = `${GEN}/${base}-${w}.webp`;
+      const abs = join(SITE, out);
+      if (!existsSync(abs) || statSync(abs).mtimeMs < srcTime) {
+        mkdirSync(dirname(abs), { recursive: true });
+        await sharp(src).rotate().resize({ width: w, withoutEnlargement: true })
+          .webp({ quality: 78, effort: 5 }).toFile(abs);
+      }
+      files.push({ w, url: out });
+    }
+    const pick = (min) => files.find((f) => f.w >= min) || files[files.length - 1];
+    return {
+      src: pick(1024).url,
+      thumb: pick(320).url,
+      full: files[files.length - 1].url,
+      srcset: files.map((f) => `${f.url} ${f.w}w`).join(', '),
+      width: srcW,
+      height: srcH
+    };
+  } catch (error) {
+    warn(`${where}: не удалось обработать фото ${rel}: ${error.message}`);
+    return null;
+  }
+}
+
+function list(value) {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
 /* ---------- площадки: дни тренировок берём из расписания ---------- */
 
-const venuesOut = shownVenues.map((v) => {
+// «51.531542, 45.983106» (так их показывают Яндекс Карты: широта, долгота) → { lat, lon }
+function point(value, where) {
+  const raw = str(value);
+  if (!raw) return null;
+  const nums = raw.replace(/[;\s]+/g, ' ').replace(/,(?=\s|$)/g, ' ').split(/[ ,]+/).filter(Boolean).map(Number);
+  const [lat, lon] = nums;
+  if (nums.length !== 2 || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    warn(`${where}: не понимаю точку на карте «${raw}» — нужно «широта, долгота», например 51.531542, 45.983106`);
+    return null;
+  }
+  return { lat: Number(lat.toFixed(6)), lon: Number(lon.toFixed(6)) };
+}
+
+const venuesOut = [];
+for (const v of shownVenues) {
   const days = [...new Set(schedule.filter((r) => r.venueId === v.id).map((r) => r.dayShort))]
     .sort((a, b) => DAY_SHORT.indexOf(a) - DAY_SHORT.indexOf(b));
   const address = str(v.address);
-  return {
+  const title = str(v.full_name) || str(v.title);
+  const short = str(v.title) || title;
+  const geo = point(v.point, `Площадка «${short}»`);
+  const photos = [];
+  for (const path of list(v.photos)) {
+    const variants = await photoVariants(path, `Площадка «${short}»`);
+    if (!variants) continue;
+    // подпись для поисковиков и экранных дикторов
+    variants.alt = `Бадминтон в Саратове — тренировка клуба «Бешеные ракетки», ${short}, фото ${photos.length + 1}`;
+    photos.push(variants);
+  }
+  venuesOut.push({
     anchor: venueAnchor.get(v.id),
-    title: str(v.full_name) || str(v.title),
+    title,
+    short,
     address,
-    map: safeUrl(v.map_link) || (address ? `https://yandex.ru/maps/?text=${encodeURIComponent(address)}` : ''),
-    days
-  };
-});
+    map: safeUrl(v.map_link) ||
+      (geo ? `https://yandex.ru/maps/?pt=${geo.lon},${geo.lat}&z=17&l=map` : '') ||
+      (address ? `https://yandex.ru/maps/?text=${encodeURIComponent(address)}` : ''),
+    geo,   // точка для карты в сетке фото и для разметки schema.org
+    days,
+    photos
+  });
+}
 
 /* ---------- виды тренировок ---------- */
 
 // «Написать тренеру» ведёт к блоку «Тренеры» — только если там есть кого показать
-const trainings = trainingTypes.filter(isShown).map((t) => ({
-  title: str(t.title),
-  html: markdown(t.description, `Вид тренировки «${str(t.title)}»`),
-  coachesLink: t.coaches_link === true && coaches.length > 0
-})).filter((t) => t.title);
+const trainings = [];
+for (const t of trainingTypes.filter(isShown)) {
+  const title = str(t.title);
+  if (!title) continue;
+  const photo = await photoVariants(t.photo, `Вид тренировки «${title}»`);
+  if (photo) photo.alt = `${title} тренировка по бадминтону в Саратове — клуб «Бешеные ракетки»`;
+  trainings.push({
+    title,
+    html: markdown(t.description, `Вид тренировки «${title}»`),
+    coachesLink: t.coaches_link === true && coaches.length > 0,
+    photo
+  });
+}
 
 /* ---------- блоки ---------- */
 
 const hero = readObject('hero.json');
+
+// Лента фото под первым экраном собирается сама из фото площадок — все, кроме первого
+// (первое — большое в сетке площадки, обычно общее фото). Площадки чередуются,
+// а в браузере лента каждый раз перемешивается. Сюда же — «Ещё фото в ленту» из админки
+// (турниры, праздники — то, что не про конкретный зал).
+const stripContent = readObject('strip.json');
+const stripPhotos = [];
+if (stripContent.show !== false) {
+  const pools = venuesOut.map((v) => v.photos.slice(1));
+  for (let i = 0; pools.some((pool) => i < pool.length); i += 1) {
+    for (const pool of pools) if (pool[i]) stripPhotos.push(pool[i]);
+  }
+  for (const path of list(stripContent.photos)) {
+    const variants = await photoVariants(path, 'Лента фото');
+    if (!variants) continue;
+    variants.alt = `Бадминтон в Саратове — клуб «Бешеные ракетки», фото ${stripPhotos.length + 1}`;
+    stripPhotos.push(variants);
+  }
+}
+// одно и то же фото — один раз
+const seenStrip = new Set();
+for (let i = stripPhotos.length - 1; i >= 0; i -= 1) {
+  if (seenStrip.has(stripPhotos[i].full)) stripPhotos.splice(i, 1);
+  else seenStrip.add(stripPhotos[i].full);
+}
 const signup = readObject('signup.json');
 const final = readObject('final.json');
 const sheet = isObject(signup.sheet) ? signup.sheet : {};   // окно «Записаться»
@@ -345,6 +475,7 @@ function cards(file, section) {
 
 const data = {
   contacts,
+  strip: { photos: stripPhotos },
   hero: { heading: str(hero.heading), title: str(hero.title), slogan: str(hero.slogan), text: str(hero.text) },
   trainings,
   schedule: schedule.map(({ venueId, ...row }) => row),

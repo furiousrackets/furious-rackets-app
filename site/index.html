@@ -87,6 +87,17 @@
     </div>
   </section>
 
+  <!-- Лента фото: листается пальцем, на компьютере — стрелками; по нажатию — просмотр на весь экран -->
+  <section class="strip" id="photos" aria-label="Фото с тренировок" hidden>
+    <div class="strip__track" data-strip></div>
+    <button class="strip__btn strip__btn--prev" type="button" data-strip-prev aria-label="Листать назад" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button class="strip__btn strip__btn--next" type="button" data-strip-next aria-label="Листать вперёд" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </section>
+
   <section class="section section--trainings" id="trainings" hidden>
     <div class="wrap">
       <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-trainings.png" alt="" width="200" height="194" loading="lazy"><h2 class="h2">Наши тренировки</h2></div>
@@ -115,8 +126,9 @@
   <section class="section section--venues" id="venues" hidden>
     <div class="wrap">
       <div class="section__head section__head--icon"><img class="section__icon" src="assets/icon-venues.png" alt="" width="200" height="154" loading="lazy"><h2 class="h2">Где играем</h2></div>
-      <div class="venues auto-grid" data-venues></div>
     </div>
+    <!-- площадки вне .wrap: фото идут во всю ширину экрана -->
+    <div class="venues" data-venues></div>
   </section>
 
   <section class="section section--coach" id="coach" hidden>
@@ -204,6 +216,23 @@
       <a class="btn btn--ghost" href="tel:+79272776339">Позвонить +7 (927) 277-63-39</a>
     </div>
   </div>
+</div>
+
+<!-- Просмотр фото площадок на весь экран -->
+<div class="lightbox" data-lightbox hidden role="dialog" aria-modal="true" aria-label="Фото">
+  <button class="lightbox__close" type="button" data-lightbox-close aria-label="Закрыть">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <button class="lightbox__nav lightbox__nav--prev" type="button" data-lightbox-prev aria-label="Предыдущее фото">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <figure class="lightbox__figure">
+    <img class="lightbox__img" alt="">
+    <figcaption class="lightbox__caption"></figcaption>
+  </figure>
+  <button class="lightbox__nav lightbox__nav--next" type="button" data-lightbox-next aria-label="Следующее фото">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
 </div>
 
 <script src="js/app.js"></script>

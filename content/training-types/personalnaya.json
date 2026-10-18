@@ -1,6 +1,7 @@
 {
   "title": "Персональная",
   "description": "Один на один с тренером: разбираем твою технику и то, что не получается. Условия и запись — у тренера.",
+  "photo": "media/venues/sgmu-3.jpg",
   "highlight": false,
   "coaches_link": true,
   "order": 30,

@@ -224,10 +224,12 @@
     return items.some(function (item) { return safeUrl(item[field]); });
   }
 
-  function media(prefix, url, alt, fill) {
+  function media(prefix, url, alt, fill, srcset, sizes) {
     var src = safeUrl(url);
     if (src) {
-      return '<div class="' + prefix + '__media"><img src="' + src + '" alt="' + esc(alt) + '" loading="lazy"></div>';
+      return '<div class="' + prefix + '__media"><img src="' + src + '"' +
+        (str(srcset) ? ' srcset="' + esc(srcset) + '" sizes="' + esc(sizes || '100vw') + '"' : '') +
+        ' alt="' + esc(alt) + '" loading="lazy" decoding="async"></div>';
     }
     if (fill) {
       return '<div class="' + prefix + '__media card-placeholder" aria-hidden="true">' +
@@ -329,7 +331,14 @@
     if (!host) return;
 
     host.innerHTML = items.map(function (t) {
-      return '<article class="training">' +
+      var p = t.photo;
+      var photo = p && safeUrl(p.src)
+        ? '<div class="training__media"><img src="' + safeUrl(p.thumb) + '" srcset="' + esc(p.srcset) + '" ' +
+          'sizes="(min-width: 860px) 33vw, 100vw" width="' + esc(p.width) + '" height="' + esc(p.height) + '" ' +
+          'alt="' + esc(p.alt) + '" loading="lazy" decoding="async"></div>'
+        : '';
+      return '<article class="training' + (photo ? ' has-photo' : '') + '">' +
+        photo +
         '<h3 class="training__title">' + esc(t.title) + '</h3>' +
         (str(t.html) ? '<div class="training__text rich">' + richHtml(t.html) + '</div>' : '') +
         (t.coachesLink
@@ -418,27 +427,424 @@
     reveal('signup', isVisible);
   }
 
+  // Фото площадки — сетка во всю ширину экрана: большое фото и четыре поменьше
+  // (на телефоне — большое и два). Если у площадки есть точка на карте, одна из
+  // маленьких клеток — карта. Остальные фото открываются в просмотрщике:
+  // на последней видимой плитке «+N». Это обычные ссылки на большие фото —
+  // без JS они просто откроются, с JS — в просмотрщике (см. gallery ниже).
+  var TILES_WIDE = 5;
+  var TILES_PHONE = 3;
+  var TILES_WIDE_MAP = 4;    // с картой: большое фото, три поменьше и карта
+  var TILES_PHONE_MAP = 2;   // на телефоне: большое фото, одно поменьше и карта
+
+  // Карта площадки: плитки OpenStreetMap с точкой в центре (без рекламы
+  // и без ключей). Сама карта не двигается, чтобы не мешала листать страницу;
+  // нажатие открывает Яндекс Карты — там и маршрут. Плитки рисует maps ниже.
+  function venueMapTile(v) {
+    var geo = v.geo || {};
+    var lat = Number(geo.lat);
+    var lon = Number(geo.lon);
+    if (!geo.lat || !geo.lon || !isFinite(lat) || !isFinite(lon)) return '';
+    var link = safeUrl(v.map);
+    return '<div class="venue__tile venue__tile--map" data-map-lat="' + lat + '" data-map-lon="' + lon + '">' +
+      '<div class="venue__map-tiles" aria-hidden="true"></div>' +
+      '<span class="venue__map-pin" aria-hidden="true"></span>' +
+      (link ? '<a class="venue__map-open" href="' + link + '" target="_blank" rel="noopener" ' +
+        'aria-label="Как добраться: ' + esc(v.title) + ' — открыть Яндекс Карты"><span>Как добраться ↗</span></a>' : '') +
+      '<a class="venue__map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>' +
+      '</div>';
+  }
+
+  var maps = {
+    ZOOM: 15,   // в маленькой клетке видно соседние улицы — сразу понятно, что это карта
+    TILE: 256,
+    timer: 0,
+
+    // какие плитки OpenStreetMap нужны, чтобы точка была ровно в центре
+    draw: function () {
+      var z = this.ZOOM;
+      var size = this.TILE;
+      qa('[data-map-lat]').forEach(function (tile) {
+        var box = tile.querySelector('.venue__map-tiles');
+        var w = tile.clientWidth;
+        var h = tile.clientHeight;
+        if (!box || !w || !h) return;
+        var key = w + 'x' + h;
+        if (box.getAttribute('data-size') === key) return;
+
+        var lat = Number(tile.getAttribute('data-map-lat')) * Math.PI / 180;
+        var lon = Number(tile.getAttribute('data-map-lon'));
+        var world = Math.pow(2, z) * size;
+        var left = (lon + 180) / 360 * world - w / 2;
+        var top = (1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2 * world - h / 2;
+
+        var html = '';
+        for (var ty = Math.floor(top / size); ty <= Math.floor((top + h) / size); ty += 1) {
+          for (var tx = Math.floor(left / size); tx <= Math.floor((left + w) / size); tx += 1) {
+            html += '<img src="https://tile.openstreetmap.org/' + z + '/' + tx + '/' + ty + '.png" alt="" ' +
+              'width="' + size + '" height="' + size + '" loading="lazy" decoding="async" ' +
+              'style="left:' + Math.round(tx * size - left) + 'px;top:' + Math.round(ty * size - top) + 'px">';
+          }
+        }
+        box.innerHTML = html;
+        box.setAttribute('data-size', key);
+      });
+    },
+
+    setup: function () {
+      var self = this;
+      window.addEventListener('resize', function () {
+        clearTimeout(self.timer);
+        self.timer = setTimeout(function () { self.draw(); }, 150);
+      });
+    }
+  };
+
+  function venuePhotos(v) {
+    var photos = list(v.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); });
+    var mapTile = venueMapTile(v);
+    if (!photos.length && !mapTile) return '';
+    var gallery = esc(v.anchor);
+    var total = photos.length;
+    var wide = mapTile ? TILES_WIDE_MAP : TILES_WIDE;
+    var phone = mapTile ? TILES_PHONE_MAP : TILES_PHONE;
+
+    var tiles = photos.map(function (p, index) {
+      var moreWide = index === wide - 1 && total > wide ? total - wide : 0;
+      var morePhone = index === phone - 1 && total > phone ? total - phone : 0;
+      var sizes = index === 0 ? '(min-width: 860px) 50vw, 100vw' : '(min-width: 860px) 34vw, 50vw';
+      return '<a class="venue__tile" href="' + safeUrl(p.full) + '" data-gallery="' + gallery + '" data-index="' + index + '">' +
+        '<img src="' + safeUrl(p.src) + '" srcset="' + esc(p.srcset) + '" sizes="' + sizes + '" ' +
+          'width="' + esc(p.width) + '" height="' + esc(p.height) + '" ' +
+          'alt="' + esc(p.alt) + '" loading="lazy" decoding="async">' +
+        (moreWide ? '<span class="venue__more venue__more--wide">+' + moreWide + '</span>' : '') +
+        (morePhone ? '<span class="venue__more venue__more--phone">+' + morePhone + '</span>' : '') +
+        '</a>';
+    }).join('');
+
+    return '<div class="venue__mosaic' + (mapTile ? ' has-map' : '') + '" data-count="' + Math.min(total, wide) + '">' +
+      tiles + mapTile + '</div>';
+  }
+
   function renderVenues(items) {
     var host = q('[data-venues]');
     if (!host) return;
 
     host.innerHTML = items.map(function (v) {
       var map = safeUrl(v.map);
-      return '<article class="venue" id="' + esc(v.anchor) + '">' +
-        '<h3 class="venue__title">' + esc(v.title) + '</h3>' +
-        (str(v.address) ? '<p class="venue__address">' + escMultiline(v.address) + '</p>' : '') +
-        '<div class="venue__foot">' +
-          '<p class="venue__days">' + strings(v.days).map(function (day) {
-            return '<span class="day-chip">' + esc(day) + '</span>';
-          }).join('') + '</p>' +
-          (map ? '<a class="venue__map" href="' + map + '" target="_blank" rel="noopener">Показать на карте</a>' : '') +
+      var photos = venuePhotos(v);
+      // если есть карта в сетке, отдельная ссылка «Показать на карте» не нужна
+      var hasMapTile = Boolean(venueMapTile(v));
+      var days = strings(v.days).map(function (day) {
+        return '<span class="day-chip">' + esc(day) + '</span>';
+      }).join('');
+      return '<article class="venue' + (photos ? ' has-photos' : '') + '" id="' + esc(v.anchor) + '">' +
+        '<div class="wrap venue__head">' +
+          '<div class="venue__info">' +
+            '<h3 class="venue__title">' + esc(v.title) + '</h3>' +
+            (str(v.address) ? '<p class="venue__address">' + escMultiline(v.address) + '</p>' : '') +
+          '</div>' +
+          '<div class="venue__foot">' +
+            (days ? '<p class="venue__days">' + days + '</p>' : '') +
+            (map && !hasMapTile ? '<a class="venue__map" href="' + map + '" target="_blank" rel="noopener">Показать на карте</a>' : '') +
+          '</div>' +
         '</div>' +
+        photos +
         '</article>';
     }).join('');
 
-    layoutGrid(host, items.length, 3);
     reveal('venues', items.length > 0);
+    gallery.collect(items);
+    maps.draw();
   }
+
+  /* ---------- лента фото под первым экраном ----------
+     Лента медленно едет сама по кругу (в конце незаметно начинается сначала — для этого
+     в браузере добавляются копии фото). Останавливается, пока на ней мышка, палец или
+     фокус, и на несколько секунд после того, как человек листал сам. Если в системе
+     включено «уменьшить движение» — стоит на месте, листается пальцем и стрелками. */
+
+  var STRIP_SPEED = 28;        // пикселей в секунду
+  var STRIP_RESUME_MS = 3500;  // через сколько продолжить после ручного листания
+
+  function stripItem(p, index, clone) {
+    return '<a class="strip__item' + (clone ? ' is-clone' : '') + '" href="' + safeUrl(p.full) + '" data-gallery="strip" data-index="' + index + '"' +
+      (clone ? ' aria-hidden="true" tabindex="-1"' : '') + '>' +
+      '<img src="' + safeUrl(p.thumb) + '" srcset="' + esc(p.srcset) + '" sizes="(min-width: 860px) 390px, 270px" ' +
+      'width="' + esc(p.width) + '" height="' + esc(p.height) + '" alt="' + (clone ? '' : esc(p.alt)) + '" loading="lazy" decoding="async">' +
+      '</a>';
+  }
+
+  // Лента каждый раз в новом порядке
+  function shuffle(items) {
+    var out = items.slice();
+    for (var i = out.length - 1; i > 0; i -= 1) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+    }
+    return out;
+  }
+
+  function renderStrip(block) {
+    var host = q('[data-strip]');
+    if (!host) return;
+    var photos = shuffle(list(block && block.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); }));
+
+    host.innerHTML = photos.map(function (p, index) { return stripItem(p, index, false); }).join('');
+
+    gallery.add('strip', 'С тренировок клуба', photos);
+    reveal('photos', photos.length > 0);
+    strip.start(photos);
+  }
+
+  var strip = {
+    track: null,
+    auto: false,
+    loopWidth: 0,
+    pos: 0,
+    last: 0,
+    anim: null,
+    hold: { hover: false, touch: false, focus: false, offscreen: false },
+    userUntil: 0,
+    frame: 0,
+
+    canAnimate: function () {
+      return typeof window.matchMedia === 'function' &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+        typeof requestAnimationFrame === 'function';
+    },
+
+    // запуск после того, как фото нарисованы
+    start: function (photos) {
+      var track = this.track;
+      if (!track) return;
+      this.auto = photos.length >= 3 && this.canAnimate();
+      if (this.auto) {
+        // копии для бесконечного круга — только в браузере, в HTML для поисковиков их нет
+        track.insertAdjacentHTML('beforeend', photos.map(function (p, index) { return stripItem(p, index, true); }).join(''));
+        track.parentNode.classList.add('is-auto');
+        this.measure();
+        this.pos = track.scrollLeft;
+        this.last = 0;
+        cancelAnimationFrame(this.frame);
+        this.frame = requestAnimationFrame(this.tick.bind(this));
+      }
+      this.updateButtons();
+    },
+
+    measure: function () {
+      var first = this.track.querySelector('.strip__item');
+      var clone = this.track.querySelector('.strip__item.is-clone');
+      this.loopWidth = first && clone ? clone.offsetLeft - first.offsetLeft : 0;
+    },
+
+    paused: function (now) {
+      var h = this.hold;
+      return h.hover || h.touch || h.focus || h.offscreen || document.hidden || now < this.userUntil;
+    },
+
+    tick: function (now) {
+      var track = this.track;
+      var dt = this.last ? Math.min((now - this.last) / 1000, 0.1) : 0;
+      this.last = now;
+
+      // человек листал сам (пальцем, тачпадом) — подхватываем его положение и ждём
+      if (!this.anim && Math.abs(track.scrollLeft - this.pos) > 2) {
+        this.pos = track.scrollLeft;
+        this.userUntil = now + STRIP_RESUME_MS;
+      }
+
+      if (this.anim) {
+        var a = this.anim;
+        var t = Math.min((now - a.start) / a.duration, 1);
+        var eased = 1 - Math.pow(1 - t, 3);
+        this.pos = a.from + (a.to - a.from) * eased;
+        if (t >= 1) this.anim = null;
+      } else if (!this.paused(now)) {
+        this.pos += STRIP_SPEED * dt;
+      }
+
+      // круг: дошли до копий — незаметно перескакиваем к началу (и наоборот)
+      var w = this.loopWidth;
+      if (w > 0) {
+        var shift = this.pos >= w ? -w : (this.pos < 0 ? w : 0);
+        if (shift) {
+          this.pos += shift;
+          if (this.anim) { this.anim.from += shift; this.anim.to += shift; }
+        }
+      }
+      track.scrollLeft = this.pos;
+      this.frame = requestAnimationFrame(this.tick.bind(this));
+    },
+
+    // стрелки: плавно на ~80% ширины экрана
+    step: function (direction) {
+      var track = this.track;
+      var distance = direction * track.clientWidth * 0.8;
+      if (!this.auto) {
+        track.scrollBy({ left: distance, behavior: 'smooth' });
+        return;
+      }
+      var now = performance.now();
+      var from = this.anim ? this.anim.to : this.pos;
+      this.anim = { from: this.pos, to: from + distance, start: now, duration: 600 };
+      this.userUntil = now + STRIP_RESUME_MS;
+    },
+
+    // без автопрокрутки стрелки видны, только если есть куда листать; по кругу — всегда
+    updateButtons: function () {
+      var track = this.track;
+      if (!track) return;
+      var prev = q('[data-strip-prev]');
+      var next = q('[data-strip-next]');
+      var max = track.scrollWidth - track.clientWidth;
+      if (prev) prev.hidden = !this.auto && track.scrollLeft <= 4;
+      if (next) next.hidden = !this.auto && track.scrollLeft >= max - 4;
+    },
+
+    setup: function () {
+      var self = this;
+      var track = self.track = q('[data-strip]');
+      if (!track) return;
+      var root = track.parentNode;
+
+      var prev = q('[data-strip-prev]');
+      var next = q('[data-strip-next]');
+      if (prev) prev.addEventListener('click', function () { self.step(-1); });
+      if (next) next.addEventListener('click', function () { self.step(1); });
+
+      root.addEventListener('mouseenter', function () { self.hold.hover = true; });
+      root.addEventListener('mouseleave', function () { self.hold.hover = false; });
+      track.addEventListener('touchstart', function () { self.hold.touch = true; }, { passive: true });
+      track.addEventListener('touchend', function () {
+        self.hold.touch = false;
+        self.userUntil = performance.now() + STRIP_RESUME_MS;
+      });
+      root.addEventListener('focusin', function () { self.hold.focus = true; });
+      root.addEventListener('focusout', function () { self.hold.focus = false; });
+
+      // за экраном лента не крутится — не тратим батарею
+      if (typeof IntersectionObserver === 'function') {
+        new IntersectionObserver(function (entries) {
+          self.hold.offscreen = !entries[0].isIntersecting;
+        }).observe(root);
+      }
+
+      var pending = false;
+      track.addEventListener('scroll', function () {
+        if (self.auto || pending) return;
+        pending = true;
+        requestAnimationFrame(function () { pending = false; self.updateButtons(); });
+      }, { passive: true });
+      window.addEventListener('resize', function () {
+        if (self.auto) self.measure();
+        self.updateButtons();
+      });
+    }
+  };
+
+  /* ---------- просмотр фото на весь экран ---------- */
+
+  var gallery = {
+    root: null,
+    sets: {},
+    current: null,
+    index: 0,
+    lastFocus: null,
+
+    add: function (name, title, photos) {
+      var good = list(photos).filter(function (p) { return safeUrl(p.full); });
+      if (good.length) this.sets[name] = { title: str(title), photos: good };
+      else delete this.sets[name];
+    },
+
+    collect: function (venues) {
+      list(venues).forEach(function (v) {
+        this.add(v.anchor, v.short || v.title, v.photos);
+      }, this);
+    },
+
+    show: function (index) {
+      var set = this.sets[this.current];
+      if (!set) return;
+      var count = set.photos.length;
+      this.index = (index + count) % count;
+      var photo = set.photos[this.index];
+      var img = this.root.querySelector('.lightbox__img');
+      img.src = photo.full;
+      img.alt = photo.alt || '';
+      this.root.querySelector('.lightbox__caption').textContent =
+        set.title + ' · ' + (this.index + 1) + ' из ' + count;
+      var single = count < 2;
+      qa('.lightbox__nav').forEach(function (b) { b.hidden = single; });
+      // заранее подгружаем соседние фото, чтобы листалось без пауз
+      [1, -1].forEach(function (step) {
+        var next = set.photos[(this.index + step + count) % count];
+        if (next) new Image().src = next.full;
+      }, this);
+    },
+
+    open: function (name, index) {
+      if (!this.root || !this.sets[name]) return false;
+      this.current = name;
+      this.lastFocus = document.activeElement;
+      this.root.hidden = false;
+      document.documentElement.classList.add('is-locked');
+      this.show(index);
+      var close = this.root.querySelector('.lightbox__close');
+      if (close) close.focus({ preventScroll: true });
+      return true;
+    },
+
+    close: function () {
+      if (!this.root || this.root.hidden) return;
+      this.root.hidden = true;
+      this.root.querySelector('.lightbox__img').removeAttribute('src');
+      document.documentElement.classList.remove('is-locked');
+      if (this.lastFocus && this.lastFocus.focus) this.lastFocus.focus({ preventScroll: true });
+    },
+
+    setup: function () {
+      var self = this;
+      self.root = q('[data-lightbox]');
+      if (!self.root) return;
+
+      document.addEventListener('click', function (event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var link = target.closest('[data-gallery]');
+        if (link) {
+          if (self.open(link.getAttribute('data-gallery'), Number(link.getAttribute('data-index')) || 0)) {
+            event.preventDefault();
+          }
+          return;
+        }
+        if (self.root.hidden) return;
+        if (target.closest('[data-lightbox-prev]')) self.show(self.index - 1);
+        else if (target.closest('[data-lightbox-next]')) self.show(self.index + 1);
+        else if (target.closest('[data-lightbox-close]') || !target.closest('.lightbox__figure')) self.close();
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (self.root.hidden) return;
+        if (event.key === 'Escape') self.close();
+        else if (event.key === 'ArrowLeft') self.show(self.index - 1);
+        else if (event.key === 'ArrowRight') self.show(self.index + 1);
+      });
+
+      // свайп влево/вправо на телефоне
+      var startX = null;
+      self.root.addEventListener('touchstart', function (event) {
+        startX = event.touches.length === 1 ? event.touches[0].clientX : null;
+      }, { passive: true });
+      self.root.addEventListener('touchend', function (event) {
+        if (startX === null) return;
+        var dx = event.changedTouches[0].clientX - startX;
+        startX = null;
+        if (Math.abs(dx) > 50) self.show(self.index + (dx < 0 ? 1 : -1));
+      });
+    }
+  };
 
   function renderCoaches(items) {
     var host = q('[data-coaches]');
@@ -449,7 +855,7 @@
       var telegram = safeUrl(c.telegram);
       var hasMedia = safeUrl(c.photo) || fill;
       return '<article class="coach' + (hasMedia ? '' : ' is-textonly') + '">' +
-        media('coach', c.photo, c.title, fill) +
+        media('coach', c.photo, c.photoAlt || c.title, fill, c.photoSrcset, '(min-width: 860px) 340px, 280px') +
         '<div class="coach__body">' +
           '<h3 class="coach__name">' + esc(c.title) + '</h3>' +
           (str(c.html) ? '<div class="coach__about rich">' + richHtml(c.html) + '</div>' : '') +
@@ -758,6 +1164,7 @@
     sheet.fill(data.contacts || {}, data.signup || {});
     applyTexts(data);
 
+    renderStrip(data.strip);
     renderTrainings(list(data.trainings));
     renderSchedule(list(data.schedule));
     renderSignup(data.signup);
@@ -771,10 +1178,25 @@
     applyHash();
   }
 
+  // Рамка фокуса — только для клавиатуры: клик или касание её прячут, Tab и стрелки возвращают
+  function trackInputMode() {
+    var root = document.documentElement;
+    document.addEventListener('pointerdown', function () {
+      root.classList.add('using-pointer');
+    }, true);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Tab' || event.key.indexOf('Arrow') === 0) root.classList.remove('using-pointer');
+    }, true);
+  }
+
   function start() {
+    trackInputMode();
     setYear();
     setupStickyCta();
     sheet.setup();
+    gallery.setup();
+    strip.setup();
+    maps.setup();
 
     var loader = createLoader();
 

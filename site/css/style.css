@@ -47,6 +47,8 @@ p { margin: 0 0 1em; }
   outline: 3px solid var(--acc);
   outline-offset: 3px;
 }
+/* После клика мышкой или касания рамку фокуса не показываем — она нужна только при работе с клавиатуры */
+.using-pointer :focus-visible { outline: none; }
 
 .skip-link {
   position: absolute;
@@ -289,7 +291,7 @@ p { margin: 0 0 1em; }
 /* ---------- секции ---------- */
 
 .section {
-  padding: 52px 0;
+  padding: 60px 0;
   border-bottom: 1px solid var(--line);
   scroll-margin-top: calc(var(--header-h) + 8px);
 }
@@ -391,12 +393,10 @@ p { margin: 0 0 1em; }
 /* ---------- как записаться ---------- */
 
 .steps {
-  --grid-gap: 1px;
+  --grid-gap: 16px;
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--line);
-  border: 1px solid var(--line);
 }
 
 .step {
@@ -445,15 +445,14 @@ p { margin: 0 0 1em; }
 
 /* ---------- виды тренировок ---------- */
 
+/* Карточки на тёмной подложке, как у тренера и партнёров, без рамок */
 .trainings {
-  --grid-gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
+  --grid-gap: 16px;
 }
 
 .training {
   background: var(--panel);
-  padding: 24px 22px;
+  padding: 24px 22px 28px;
 }
 
 .training__title {
@@ -470,6 +469,21 @@ p { margin: 0 0 1em; }
 .training__text {
   margin: 0;
   color: var(--muted);
+}
+
+/* Фото тренировки — сверху карточки, во всю её ширину */
+.training > .training__media {
+  margin: -24px -22px 16px;
+  align-self: stretch;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: #111;
+}
+.training__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---------- расписание ---------- */
@@ -596,7 +610,6 @@ p { margin: 0 0 1em; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 22px;
-  border: 1px solid var(--line);
   background: var(--panel);
 }
 
@@ -656,44 +669,391 @@ p { margin: 0 0 1em; }
 
 /* ---------- площадки ---------- */
 
-.venues {
-  --grid-gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-}
-
+/* Площадка: название, адрес и дни — в колонке сайта, фото — сеткой во всю ширину экрана */
 .venue {
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  padding: 22px 20px;
   scroll-margin-top: calc(var(--header-h) + 12px);
 }
+.venue + .venue { margin-top: 56px; }
 
-.venue__foot { margin-top: auto; }
+.venue__head {
+  margin-bottom: 20px;
+}
+
+.venue__mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+.venue__tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #111;
+  cursor: zoom-in;
+}
+.venue__tile:first-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 3 / 2;
+}
+/* на телефоне — большое фото и два поменьше; если есть карта — фото и карта */
+.venue__tile:nth-child(n + 4):not(.venue__tile--map) { display: none; }
+.venue__mosaic.has-map .venue__tile:nth-child(n + 3):not(.venue__tile--map) { display: none; }
+.venue__mosaic:not(.has-map)[data-count="2"] .venue__tile:nth-child(2) { grid-column: 1 / -1; aspect-ratio: 3 / 2; }
+.venue .venue__mosaic.has-map[data-count="0"] .venue__tile--map,
+.venue .venue__mosaic.has-map[data-count="1"] .venue__tile--map { grid-column: 1 / -1; aspect-ratio: 2 / 1; }
+
+/* Плитка с картой — одна клетка сетки, как фото. Сама карта не ловит мышь и пальцы
+   (не мешает листать страницу), нажатие открывает Яндекс Карты */
+.venue .venue__tile--map { cursor: pointer; }
+.venue__map-tiles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #f2efe9;   /* цвет суши OpenStreetMap — пока плитки грузятся */
+}
+/* плитки карты — строго 256×256 на своих местах: общие правила для фото
+   площадки (растянуть на всю плитку, увеличить при наведении) к ним не относятся */
+.venue__tile--map .venue__map-tiles img {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  max-width: none;
+  object-fit: fill;
+  transform: none;
+  transition: none;
+}
+.venue__map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: var(--acc);
+  border: 4px solid #000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.venue__map-pin::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #000;
+  animation: map-pulse 2.2s ease-out infinite;
+}
+@keyframes map-pulse {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(2.6); opacity: 0; }
+}
+.venue__map-credit {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333;
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 1px 5px;
+  text-decoration: none;
+}
+.venue__map-credit:hover { color: #000; }
+@media (prefers-reduced-motion: reduce) {
+  .venue__map-pin::after { animation: none; opacity: 0; }
+}
+.venue__map-open {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  z-index: 1;
+  padding: 10px;
+  text-decoration: none;
+}
+.venue__map-open span {
+  background: #000;
+  color: var(--acc);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 9px;
+  transition: background-color 0.15s linear, color 0.15s linear;
+}
+.venue__map-open:hover span { background: var(--acc); color: #000; }
+.venue__map-open:focus-visible {
+  outline: 3px solid var(--acc);
+  outline-offset: -3px;
+}
+
+.venue__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.venue__tile:not(.venue__tile--map):hover img { transform: scale(1.04); }
+
+/* Рамка фокуса у фото — внутри картинки, чтобы её не перекрывали соседние фото */
+.venue__tile:focus-visible,
+.strip__item:focus-visible {
+  outline: 3px solid var(--acc);
+  outline-offset: -3px;
+}
+
+.venue__more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.62);
+  color: var(--acc);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 28px;
+  transition: background-color 0.2s linear;
+}
+.venue__tile:hover .venue__more { background: rgba(0, 0, 0, 0.4); }
+.venue__more--wide { display: none; }
+
+@media (min-width: 860px) {
+  .venue + .venue { margin-top: 80px; }
+
+  .venue__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 40px;
+    margin-bottom: 26px;
+  }
+
+  /* большое фото на 2×2 клетки и четыре поменьше; у второй площадки — зеркально */
+  .venue__mosaic {
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: clamp(150px, 16vw, 300px);
+    grid-auto-flow: row dense;
+  }
+  .venue__tile,
+  .venue__tile:first-child,
+  .venue__mosaic[data-count="2"] .venue__tile:nth-child(2) { aspect-ratio: auto; }
+  .venue__tile:nth-child(n + 4):not(.venue__tile--map) { display: block; }
+  .venue__tile:nth-child(n + 6):not(.venue__tile--map) { display: none; }
+  .venue__tile:first-child { grid-column: 1 / span 2; grid-row: span 2; }
+  .venue:nth-child(even) .venue__tile:first-child { grid-column: 3 / span 2; }
+
+  .venue .venue__mosaic:not(.has-map)[data-count="1"] .venue__tile:first-child { grid-column: 1 / -1; }
+  .venue__mosaic:not(.has-map)[data-count="2"] .venue__tile,
+  .venue__mosaic:not(.has-map)[data-count="2"] .venue__tile:nth-child(2) { grid-column: span 2; grid-row: span 2; }
+  .venue__mosaic:not(.has-map)[data-count="3"] .venue__tile:not(:first-child) { grid-column: span 2; }
+  .venue__mosaic:not(.has-map)[data-count="4"] .venue__tile:nth-child(2) { grid-column: span 2; }
+
+  /* с картой: карта — одна из маленьких клеток, в верхнем углу (у второй площадки —
+     зеркально, слева), в остальных трёх — фото */
+  .venue__mosaic.has-map .venue__tile:nth-child(n + 3):not(.venue__tile--map) { display: block; }
+  .venue__mosaic.has-map .venue__tile:nth-child(n + 5):not(.venue__tile--map) { display: none; }
+  .venue .venue__mosaic.has-map .venue__tile--map { grid-column: 4; grid-row: 1; aspect-ratio: auto; }
+  .venue:nth-child(even) .venue__mosaic.has-map .venue__tile--map { grid-column: 1; }
+  /* меньше трёх фото — клетки растягиваются, пустых не бывает */
+  .venue__mosaic.has-map[data-count="3"] .venue__tile:nth-child(3) { grid-column: span 2; }
+  .venue__mosaic.has-map[data-count="2"] .venue__tile:nth-child(2) { grid-column: span 2; aspect-ratio: auto; }
+  .venue .venue__mosaic.has-map[data-count="2"] .venue__tile--map { grid-column: 3 / span 2; }
+  .venue:nth-child(even) .venue__mosaic.has-map[data-count="2"] .venue__tile--map { grid-column: 1 / span 2; }
+  .venue .venue__mosaic.has-map[data-count="1"] .venue__tile--map { grid-column: 3 / span 2; grid-row: 1 / span 2; aspect-ratio: auto; }
+  .venue:nth-child(even) .venue__mosaic.has-map[data-count="1"] .venue__tile--map { grid-column: 1 / span 2; }
+  .venue .venue__mosaic.has-map[data-count="0"] .venue__tile--map { grid-column: 1 / -1; grid-row: 1 / span 2; aspect-ratio: auto; }
+
+  .venue__more--phone { display: none; }
+  .venue__more--wide { display: grid; }
+}
+
+/* ---------- лента фото ---------- */
+
+.strip {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+
+.strip__track {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.strip__track::-webkit-scrollbar { display: none; }
+/* при автопрокрутке «примагничивание» к фото мешает плавному ходу */
+.strip.is-auto .strip__track { scroll-snap-type: none; }
+
+.strip__item {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  height: 180px;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: #111;
+  scroll-snap-align: start;
+}
+
+.strip__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.strip__item:hover img { transform: scale(1.04); }
+
+.strip__btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--acc);
+  cursor: pointer;
+}
+.strip__btn--prev { left: 12px; }
+.strip__btn--next { right: 12px; }
+
+/* на телефонах листают пальцем — стрелки не нужны */
+@media (hover: none) { .strip__btn { display: none; } }
+
+@media (min-width: 860px) {
+  .strip__item { height: 260px; }
+}
+
+/* иконки-стрелки и крестик */
+.strip__btn svg,
+.lightbox__nav svg,
+.lightbox__close svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: square;
+}
+
+/* ---------- просмотр фото ---------- */
+
+.is-locked { overflow: hidden; }
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  background: #000;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.lightbox[hidden] { display: none; }
+
+.lightbox__figure {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lightbox__img {
+  max-width: 100%;
+  max-height: calc(100vh - 110px);
+  max-height: calc(100dvh - 110px);
+  object-fit: contain;
+}
+
+.lightbox__caption {
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.lightbox__nav,
+.lightbox__close {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0 8px;
+  background: none;
+  border: 0;
+  color: var(--acc);
+  cursor: pointer;
+}
+.lightbox__nav[hidden] { visibility: hidden; display: grid; }
+.lightbox__nav:focus-visible,
+.lightbox__close:focus-visible { outline-offset: 0; }
+
+.lightbox__close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: 10px;
+  margin: 0;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .lightbox { grid-template-columns: 1fr; }
+  .lightbox__nav {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    margin: 0;
+  }
+  .lightbox__nav--prev { left: 10px; }
+  .lightbox__nav--next { right: 10px; }
+  .lightbox__img { max-height: calc(100dvh - 150px); }
+}
 
 .venue__title {
   font-family: var(--font-head);
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.15;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
+  max-width: 34em;
 }
 
 .venue__address {
   color: var(--muted);
   font-size: 15px;
-  margin: 0 0 12px;
+  margin: 0;
+}
+
+.venue__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 14px;
 }
 
 .venue__days {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 14px 0;
+  margin: 0;
 }
-.venue__days:empty { display: none; }
 
 .day-chip {
   border: 1px solid var(--acc);
@@ -713,10 +1073,15 @@ p { margin: 0 0 1em; }
   border-bottom: 1px solid var(--acc-dark);
 }
 
+@media (min-width: 860px) {
+  .venue__title { font-size: 24px; }
+  .venue__foot { flex: none; margin-top: 0; }
+}
+
 /* ---------- тренер ---------- */
 
 
-/* Фото тренера — целиком, без обрезки (аватарки бывают круглыми, с прозрачным фоном) */
+/* Фото тренера — квадрат; если загрузили не квадратное, обрезается по центру */
 .coach__media {
   display: flex;
   align-items: center;
@@ -729,7 +1094,7 @@ p { margin: 0 0 1em; }
   max-width: 280px;
   height: auto;
   aspect-ratio: 1 / 1;
-  object-fit: contain;
+  object-fit: cover;
   background: none;
 }
 
@@ -737,7 +1102,6 @@ p { margin: 0 0 1em; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 18px;
-  border: 1px solid var(--line);
   background: var(--panel);
 }
 
@@ -752,6 +1116,26 @@ p { margin: 0 0 1em; }
 }
 
 .coach__about { color: var(--muted); }
+
+/* ---------- тренер: фото без рамки, край растворяется в фоне карточки ----------
+   На телефоне фото сверху и снизу мягко переходит в карточку; на широком экране — справа
+   во всю высоту (тренер на фото смотрит влево — на текст), левый край уходит в тёмный фон. */
+.section--coach .coach { gap: 0; overflow: hidden; }
+.section--coach .coach__media { position: relative; padding: 0; }
+.section--coach .coach__media img {
+  max-width: none;
+  aspect-ratio: 5 / 4;
+  object-fit: cover;
+  object-position: 40% 25%;
+}
+.section--coach .coach__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(15, 17, 12, 0) 55%, var(--panel) 100%);
+}
+.section--coach .coach__body { padding: 4px 22px 28px; }
 
 .link-soft {
   color: inherit;
@@ -773,7 +1157,6 @@ p { margin: 0 0 1em; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 22px;
-  border: 1px solid var(--line);
   background: var(--panel);
 }
 
@@ -795,9 +1178,7 @@ p { margin: 0 0 1em; }
 /* ---------- партнёры ---------- */
 
 .partners {
-  --grid-gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
+  --grid-gap: 16px;
 }
 
 .partner {
@@ -1196,10 +1577,6 @@ p { margin: 0 0 1em; }
     flex-basis: calc((100% - (var(--cols-md, 1) - 1) * var(--grid-gap)) / var(--cols-md, 1) - 0.5px);
   }
 
-  .venue__days:empty {
-    display: block;
-    min-height: 22px;
-  }
 
 
   /* Одна карточка в блоке — картинка слева, текст справа, во всю ширину.
@@ -1211,6 +1588,21 @@ p { margin: 0 0 1em; }
   .cards[data-count="1"] > .is-textonly { grid-template-columns: 1fr; }
 
   .cards[data-count="1"] .coach__media { padding: 32px 0 32px 32px; }
+
+  .section--coach .cards[data-count="1"] > .coach { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+  .section--coach .cards[data-count="1"] .coach__media { order: 2; padding: 0; min-height: 460px; }
+  .section--coach .cards[data-count="1"] .coach__media img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-position: 0% 30%;
+  }
+  .section--coach .cards[data-count="1"] .coach__media::after {
+    background: linear-gradient(to right, var(--panel) 0%, rgba(15, 17, 12, 0.75) 8%, rgba(15, 17, 12, 0.3) 20%, rgba(15, 17, 12, 0) 34%);
+  }
+  .section--coach .cards[data-count="1"] .coach__body { padding: 40px 8px 40px 44px; }
 
   /* одна акция или турнир: картинка во всю высоту карточки (без полос сверху и снизу),
      ширина колонки подобрана под 16:9, чтобы обрезалось как можно меньше */
@@ -1285,7 +1677,7 @@ p { margin: 0 0 1em; }
 
   .section__icon { width: 64px; }
 
-  .section { padding: 72px 0; }
+  .section { padding: 88px 0; }
 
   .row {
     grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.8fr) minmax(170px, 1.1fr) minmax(0, 1.2fr) auto;

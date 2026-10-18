@@ -2,8 +2,17 @@
   "title": "Динамо",
   "full_name": "Спортивная база «Динамо»",
   "address": "г. Саратов, 3-й Дегтярный проезд, 2 к1",
+  "point": "51.512066, 46.001926",
   "price": 550,
   "map_link": "",
+  "photos": [
+    "media/venues/dinamo-1.jpg",
+    "media/venues/dinamo-2.jpg",
+    "media/venues/dinamo-3.jpg",
+    "media/venues/dinamo-4.jpg",
+    "media/venues/dinamo-5.jpg",
+    "media/venues/dinamo-6.jpg"
+  ],
   "order": 20,
   "show": true
 }

@@ -173,6 +173,24 @@ content:
             label: Текст
             type: text
 
+      - name: strip
+        label: Лента фото
+        type: file
+        path: content/strip.json
+        format: json
+        fields:
+          - name: show
+            component: show
+          - name: photos
+            label: Ещё фото в ленту
+            type: image
+            description: Лента под первым экраном собирается сама из фото площадок (все, кроме первого — общего) и каждый раз перемешивается. Здесь — дополнительные кадры, которые не про конкретный зал (турниры, праздники). Можно загружать как есть — сайт сам их сожмёт
+            options:
+              multiple: true
+              unique: true
+              path: site/media
+              extensions: [jpg, jpeg, png, webp]
+
       - name: training_types
         label: Наши тренировки
         type: collection
@@ -196,6 +214,13 @@ content:
           - name: description
             label: Описание
             component: rich
+          - name: photo
+            label: Фото
+            type: image
+            description: Что происходит на этой тренировке — горизонтальное фото. Можно загружать как есть — сайт сам его сожмёт
+            options:
+              path: site/media/trainings
+              extensions: [jpg, jpeg, png, webp]
           - name: highlight
             label: Выделять в расписании
             type: boolean
@@ -368,10 +393,23 @@ content:
           - name: price
             label: Цена тренировки, ₽
             type: number
+          - name: point
+            label: Точка на карте
+            type: string
+            description: "Широта и долгота через запятую, например 51.531542, 45.983106. Где взять: в Яндекс Картах нажми на здание — координаты будут в карточке места. Пусто — карты рядом с фото не будет"
           - name: map_link
             label: Своя ссылка на карту
             type: string
-            description: Пусто — Яндекс Карты по адресу
+            description: Пусто — Яндекс Карты по точке или по адресу
+          - name: photos
+            label: Фото
+            type: image
+            description: Первое — большое в сетке (например, общее фото), в ленту наверху оно не попадает. Остальные — в сетке и в ленте, лишние открываются по нажатию на «+N». Можно загружать как есть — сайт сам их сожмёт
+            options:
+              multiple: true
+              unique: true
+              path: site/media/venues
+              extensions: [jpg, jpeg, png, webp]
           - name: order
             component: order
           - name: show

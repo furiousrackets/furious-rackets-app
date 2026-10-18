@@ -58,7 +58,7 @@ for (let i = 0; i < 50 && document.querySelector('[data-schedule]')?.children.le
 }
 await wait(500);
 
-const rendered = ['trainings', 'schedule', 'signup', 'venues', 'coach', 'promos', 'tournaments', 'partners', 'faq']
+const rendered = ['photos', 'trainings', 'schedule', 'signup', 'venues', 'coach', 'promos', 'tournaments', 'partners', 'faq']
   .filter((id) => document.getElementById(id) && !document.getElementById(id).hidden);
 
 /* ---------- 2. Разметка schema.org о клубе ---------- */
@@ -120,10 +120,18 @@ const club = {
   location: (data.venues || []).map((v) => ({
     '@type': 'SportsActivityLocation',
     name: v.title,
-    address: postalAddress(v.address)
+    address: postalAddress(v.address),
+    ...(v.geo ? { geo: { '@type': 'GeoCoordinates', latitude: v.geo.lat, longitude: v.geo.lon } } : {}),
+    ...(v.map ? { hasMap: v.map } : {}),
+    ...((v.photos || []).length ? {
+      photo: v.photos.map((p) => ({ '@type': 'ImageObject', contentUrl: absolute(p.full), caption: p.alt }))
+    } : {})
   })),
   ...((data.coaches || []).length ? {
     employee: data.coaches.map((c) => ({ '@type': 'Person', name: c.title, jobTitle: 'Тренер по бадминтону' }))
+  } : {}),
+  ...((data.strip?.photos || []).length ? {
+    photo: data.strip.photos.map((p) => ({ '@type': 'ImageObject', contentUrl: absolute(p.full), caption: p.alt }))
   } : {}),
   ...(networks.length ? { sameAs: [...new Set(networks)] } : {})
 };
@@ -141,13 +149,19 @@ window.close();
 
 // Дата по Москве: сборка идёт на GitHub в UTC
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date());
+// Фото площадок — в sitemap отдельными записями, чтобы попадали в поиск по картинкам
+const xml = (s) => String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
+const images = [...new Set([...(data.strip?.photos || []), ...(data.venues || []).flatMap((v) => v.photos || [])]
+  .map((p) => p.full))].map((full) => ({ full }))
+  .map((p) => `    <image:image>\n      <image:loc>${xml(absolute(p.full))}</image:loc>\n    </image:image>\n`).join('');
 writeFileSync(join(DIST, 'sitemap.xml'),
   '<?xml version="1.0" encoding="UTF-8"?>\n' +
-  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n' +
   '  <url>\n' +
   `    <loc>${SITE_URL}</loc>\n` +
   `    <lastmod>${today}</lastmod>\n` +
   '    <changefreq>weekly</changefreq>\n' +
+  images +
   '  </url>\n' +
   '</urlset>\n');
 
