@@ -155,13 +155,20 @@ content:
         path: content/hero.json
         format: json
         fields:
-          - name: title
-            label: Заголовок
+          - name: heading
+            label: Главный заголовок
             type: string
             required: true
-          - name: slogan
-            label: Слоган
+            description: Самая крупная надпись на сайте — по ней поисковики понимают, о чём сайт. Пишите так, как ищут, например «Бадминтон в Саратове»
+          - name: title
+            label: Название клуба
             type: string
+            required: true
+            description: На салатовой плашке под главным заголовком — «Клуб «…»»
+          - name: slogan
+            label: Надпись над заголовком
+            type: string
+            description: Мелкая строка над главным заголовком, например слоган или текущая акция. Пусто — строки нет
           - name: text
             label: Текст
             type: text
@@ -532,3 +539,7 @@ content:
               value: "{name}"
               label: "{title}"
               search: title
+          - name: about
+            label: О клубе
+            component: rich
+            description: Пара абзацев о клубе внизу блока — обычными словами, как ищут («бадминтон в Саратове», площадки, для кого). Пусто — не показывается

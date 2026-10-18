@@ -248,10 +248,12 @@ p { margin: 0 0 1em; }
   font-weight: 700;
   font-style: italic;
   text-transform: uppercase;
-  font-size: clamp(46px, 15vw, 104px);
+  font-size: clamp(40px, 12vw, 92px);
   line-height: 0.9;
   letter-spacing: -0.005em;
   margin: 0 0 18px;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .slogan { margin: 0 0 20px; }
@@ -960,6 +962,26 @@ p { margin: 0 0 1em; }
   border-bottom: 2px solid rgba(0, 0, 0, 0.35);
 }
 .socials__link:hover { border-color: #000; }
+
+/* «О клубе» внизу блока контактов */
+.final__about {
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 2px solid rgba(0, 0, 0, 0.25);
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.78);
+}
+.final__about-title {
+  margin: 0 0 10px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 18px;
+  color: #000;
+}
+.final__about .rich strong,
+.final__about .rich b { color: #000; }
 
 .final :focus-visible { outline-color: #000; }
 

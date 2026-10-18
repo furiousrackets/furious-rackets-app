@@ -345,7 +345,7 @@ function cards(file, section) {
 
 const data = {
   contacts,
-  hero: { title: str(hero.title), slogan: str(hero.slogan), text: str(hero.text) },
+  hero: { heading: str(hero.heading), title: str(hero.title), slogan: str(hero.slogan), text: str(hero.text) },
   trainings,
   schedule: schedule.map(({ venueId, ...row }) => row),
   signup: {
@@ -385,7 +385,8 @@ const data = {
     groupsText: str(final.groups_text),
     groups: pickNetworks(final.group_networks, 'Приходи играть, кнопки групп'),
     groupLabel: str(final.group_label) || 'Группа в {сеть}',
-    links: pickNetworks(final.links, 'Приходи играть, ссылки на соцсети')
+    links: pickNetworks(final.links, 'Приходи играть, ссылки на соцсети'),
+    aboutHtml: markdown(final.about, 'Приходи играть, о клубе')
   }
 };
 

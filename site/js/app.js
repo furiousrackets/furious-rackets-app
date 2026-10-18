@@ -299,8 +299,12 @@
 
   function applyTexts(data) {
     var hero = data.hero || {};
-    setText('[data-hero-title]', hero.title);
+    setText('[data-hero-heading]', hero.heading);
+    // надпись над заголовком: пустое поле в админке — строки нет
     setText('[data-hero-slogan]', hero.slogan);
+    var slogan = q('[data-hero-slogan]');
+    if (slogan) slogan.hidden = !str(hero.slogan);
+    setText('[data-hero-title]', hero.title);
     setText('[data-hero-text]', hero.text);
 
     var final = data.final || {};
@@ -308,6 +312,14 @@
     setText('[data-final-text]', final.text);
     setText('[data-final-groups-text]', final.groupsText);
     renderFinalNetworks(final);
+
+    // «О клубе» внизу блока контактов
+    var about = q('[data-final-about]');
+    if (about) {
+      var aboutHtml = richHtml(final.aboutHtml);
+      if (aboutHtml) about.querySelector('[data-final-about-text]').innerHTML = aboutHtml;
+      about.hidden = !aboutHtml;
+    }
   }
 
   /* ---------- блоки ---------- */
