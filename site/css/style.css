@@ -465,10 +465,9 @@ p { margin: 0 0 1em; }
   grid-template-columns: var(--axis) repeat(7, minmax(var(--col), 1fr));
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  /* листается свободно, с инерцией; у края дня лишь мягко доводится до него */
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scroll-padding-left: var(--axis);
+  /* пальцем неделю листает скрипт — с инерцией: быстрый свайп долистывает до конца,
+     в конце мягко доводит до начала дня; вертикальный свайп листает страницу как обычно */
+  touch-action: pan-y;
   scrollbar-width: none;
 }
 .week::-webkit-scrollbar { display: none; }
@@ -538,10 +537,7 @@ p { margin: 0 0 1em; }
   display: flex;
   flex-direction: column;
   min-width: 0;
-  scroll-snap-align: start;
 }
-/* последний день — к правому краю, чтобы воскресенье было видно целиком */
-.week__day:last-child { scroll-snap-align: end; }
 .week__head {
   display: flex;
   align-items: flex-end;

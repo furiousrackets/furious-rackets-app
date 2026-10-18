@@ -543,8 +543,10 @@
     if (inBrowser) setupWeekScroll(host, today);
   }
 
-  // Неделя не помещается по ширине (телефон) — листается вбок: стрелки в заголовке,
-  // затемнение у края, за которым есть ещё дни, и сразу виден сегодняшний день
+  // Неделя не помещается по ширине (телефон) — листается вбок: стрелки под календарём,
+  // затемнение у края, за которым есть ещё дни, и сразу виден сегодняшний день.
+  // Пальцем листаем сами, с инерцией: быстрый свайп долистывает до конца, медленный —
+  // до ближайшего дня; так одинаково на всех телефонах (и в эмуляторе браузера).
   function setupWeekScroll(host, today) {
     var wrap = host.closest('[data-week-wrap]') || host.parentNode;
     var nav = q('[data-week-nav]');
@@ -553,29 +555,56 @@
     var days = host.querySelectorAll('.week__day');
     var axis = host.querySelector('.week__axis');
     var frame = 0;
+    var anim = 0;
     var state = '';
+    var drag = null;
+    var swallowClick = false;
 
     function dayWidth() {
       return days[0] ? days[0].getBoundingClientRect().width : 112;
     }
-    // стрелка листает на столько дней, сколько видно целиком, и ровно до начала дня
+    function maxLeft() {
+      return Math.max(0, host.scrollWidth - host.clientWidth);
+    }
+    // ближайшее начало дня; у самого конца — до конца, чтобы воскресенье было видно целиком
+    function snap(x) {
+      var dw = dayWidth();
+      var max = maxLeft();
+      var t = Math.round(x / dw) * dw;
+      if (t > max - dw / 2) t = max;
+      return Math.min(max, Math.max(0, t));
+    }
+    // плавная прокрутка, к концу замедляется
+    function glide(target, duration) {
+      cancelAnimationFrame(anim);
+      var from = host.scrollLeft;
+      var dist = target - from;
+      if (Math.abs(dist) < 1) return;
+      var t0 = 0;
+      anim = requestAnimationFrame(function step(now) {
+        if (!t0) t0 = now;
+        var k = Math.min(1, (now - t0) / duration);
+        host.scrollLeft = from + dist * (1 - Math.pow(1 - k, 3));
+        if (k < 1) anim = requestAnimationFrame(step);
+      });
+    }
+    // стрелка листает на столько дней, сколько видно целиком
     function page(dir) {
       var dw = dayWidth();
       var visible = host.clientWidth - (axis ? axis.offsetWidth : 0);
       var step = Math.max(1, Math.floor(visible / dw));
-      var from = Math.round(host.scrollLeft / dw);
-      host.scrollTo({ left: (from + dir * step) * dw, behavior: 'smooth' });
+      glide(snap((Math.round(host.scrollLeft / dw) + dir * step) * dw), 420);
     }
     // классы и стрелки обновляем не чаще раза за кадр и только когда что-то поменялось
     function update() {
       frame = 0;
-      var max = host.scrollWidth - host.clientWidth;
+      var max = maxLeft();
       var scrollable = max > 1;
       var left = scrollable && host.scrollLeft > 1;
       var right = scrollable && host.scrollLeft < max - 1;
-      var next_ = [scrollable, left, right].join();
-      if (next_ === state) return;
-      state = next_;
+      var now = [scrollable, left, right].join();
+      if (now === state) return;
+      state = now;
       if (nav) nav.hidden = !scrollable;
       wrap.classList.toggle('can-left', left);
       wrap.classList.toggle('can-right', right);
@@ -586,18 +615,68 @@
       if (!frame) frame = requestAnimationFrame(update);
     }
 
+    function onDown(event) {
+      if (event.pointerType !== 'touch' || maxLeft() < 1) return;
+      cancelAnimationFrame(anim);
+      drag = { id: event.pointerId, x: event.clientX, left: host.scrollLeft, moved: false,
+        track: [{ t: event.timeStamp, x: event.clientX }] };
+    }
+    function onMove(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      var dx = event.clientX - drag.x;
+      if (!drag.moved) {
+        if (Math.abs(dx) < 5) return;
+        drag.moved = true;
+        if (host.setPointerCapture) host.setPointerCapture(event.pointerId);
+      }
+      host.scrollLeft = drag.left - dx;
+      drag.track.push({ t: event.timeStamp, x: event.clientX });
+      if (drag.track.length > 6) drag.track.shift();
+    }
+    function onUp(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      var d = drag;
+      drag = null;
+      if (!d.moved) return;
+      swallowClick = true;
+      setTimeout(function () { swallowClick = false; }, 60);
+      // скорость пальца за последние ~100 мс → куда докатится по инерции
+      var last = d.track[d.track.length - 1];
+      var first = d.track[0];
+      for (var i = d.track.length - 1; i >= 0 && last.t - d.track[i].t <= 100; i -= 1) first = d.track[i];
+      var v = last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0;   // px/мс
+      if (event.timeStamp - last.t > 120) v = 0;                                // палец остановили
+      var target = snap(host.scrollLeft - v * 600);   // чем быстрее свайп, тем дальше докатится
+      glide(target, Math.min(750, Math.max(280, Math.abs(target - host.scrollLeft) * 1.3)));
+    }
+    function onCancel(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      var moved = drag.moved;
+      drag = null;
+      if (moved) glide(snap(host.scrollLeft), 300);
+    }
+
     if (today > 0 && days[today] && host.scrollWidth > host.clientWidth + 1) {
-      host.scrollLeft = days[today].offsetLeft - (axis ? axis.offsetWidth : 0);
+      host.scrollLeft = snap(days[today].offsetLeft - (axis ? axis.offsetWidth : 0));
     }
     if (!host.dataset.scrollReady) {
       host.dataset.scrollReady = '1';
       host.addEventListener('scroll', schedule, { passive: true });
       window.addEventListener('resize', schedule);
+      host.addEventListener('pointerdown', onDown);
+      host.addEventListener('pointermove', onMove);
+      host.addEventListener('pointerup', onUp);
+      host.addEventListener('pointercancel', onCancel);
+      // после свайпа не открываем ссылку под пальцем (площадка на плитке)
+      host.addEventListener('click', function (event) {
+        if (swallowClick) { event.preventDefault(); event.stopPropagation(); }
+      }, true);
       if (prev) prev.addEventListener('click', function () { page(-1); });
       if (next) next.addEventListener('click', function () { page(1); });
     }
     update();
   }
+
 
 
   // Запись под расписанием: шаги и кнопка
