@@ -465,7 +465,9 @@ p { margin: 0 0 1em; }
   grid-template-columns: var(--axis) repeat(7, minmax(var(--col), 1fr));
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
+  /* листается свободно, с инерцией; у края дня лишь мягко доводится до него */
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
   scroll-padding-left: var(--axis);
   scrollbar-width: none;
 }

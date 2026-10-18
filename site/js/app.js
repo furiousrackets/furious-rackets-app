@@ -552,18 +552,38 @@
     var next = q('[data-week-next]');
     var days = host.querySelectorAll('.week__day');
     var axis = host.querySelector('.week__axis');
+    var frame = 0;
+    var state = '';
 
     function dayWidth() {
       return days[0] ? days[0].getBoundingClientRect().width : 112;
     }
+    // стрелка листает на столько дней, сколько видно целиком, и ровно до начала дня
+    function page(dir) {
+      var dw = dayWidth();
+      var visible = host.clientWidth - (axis ? axis.offsetWidth : 0);
+      var step = Math.max(1, Math.floor(visible / dw));
+      var from = Math.round(host.scrollLeft / dw);
+      host.scrollTo({ left: (from + dir * step) * dw, behavior: 'smooth' });
+    }
+    // классы и стрелки обновляем не чаще раза за кадр и только когда что-то поменялось
     function update() {
+      frame = 0;
       var max = host.scrollWidth - host.clientWidth;
       var scrollable = max > 1;
+      var left = scrollable && host.scrollLeft > 1;
+      var right = scrollable && host.scrollLeft < max - 1;
+      var next_ = [scrollable, left, right].join();
+      if (next_ === state) return;
+      state = next_;
       if (nav) nav.hidden = !scrollable;
-      wrap.classList.toggle('can-left', scrollable && host.scrollLeft > 1);
-      wrap.classList.toggle('can-right', scrollable && host.scrollLeft < max - 1);
-      if (prev) prev.disabled = !(host.scrollLeft > 1);
-      if (next) next.disabled = !(host.scrollLeft < max - 1);
+      wrap.classList.toggle('can-left', left);
+      wrap.classList.toggle('can-right', right);
+      if (prev) prev.disabled = !left;
+      if (next) next.disabled = !right;
+    }
+    function schedule() {
+      if (!frame) frame = requestAnimationFrame(update);
     }
 
     if (today > 0 && days[today] && host.scrollWidth > host.clientWidth + 1) {
@@ -571,13 +591,14 @@
     }
     if (!host.dataset.scrollReady) {
       host.dataset.scrollReady = '1';
-      host.addEventListener('scroll', update, { passive: true });
-      window.addEventListener('resize', update);
-      if (prev) prev.addEventListener('click', function () { host.scrollBy({ left: -dayWidth(), behavior: 'smooth' }); });
-      if (next) next.addEventListener('click', function () { host.scrollBy({ left: dayWidth(), behavior: 'smooth' }); });
+      host.addEventListener('scroll', schedule, { passive: true });
+      window.addEventListener('resize', schedule);
+      if (prev) prev.addEventListener('click', function () { page(-1); });
+      if (next) next.addEventListener('click', function () { page(1); });
     }
     update();
   }
+
 
   // Запись под расписанием: шаги и кнопка
   function renderSignup(block) {
