@@ -1034,15 +1034,18 @@
 
   /* ---------- просмотр фото на весь экран ---------- */
 
-  /* Просмотр фото на весь экран. Два состояния: все фото маленькими плитками
-     (открывается с плитки «+N» в сетке площадки или кнопкой в углу) и по одному —
-     как карусель: стрелки, свайп, клавиши ← →. С любой плитки — сразу это фото. */
+  /* Просмотр фото на весь экран — как отдельная страница: у неё свой адрес (#foto-sgmu,
+     #foto-sgmu-7), а кнопка «Назад» в браузере или на телефоне возвращает на главную
+     (из фото, открытого со всех плиток, — сначала к плиткам). Два состояния: все фото
+     маленькими плитками (с плитки «+N» в сетке площадки или кнопкой в углу) и по одному —
+     как карусель: стрелки, свайп, клавиши ← →. С любой плитки сетки — сразу это фото. */
   var gallery = {
     root: null,
     sets: {},
     current: null,
     index: 0,
-    mode: 'photo',
+    mode: '',
+    depth: 0,        // сколько шагов истории занимает просмотр (1 — открыт, 2 — фото со всех плиток)
     lastFocus: null,
 
     add: function (name, title, photos) {
@@ -1057,6 +1060,31 @@
       }, this);
     },
 
+    /* ---- адрес в строке браузера ---- */
+
+    hash: function (name, mode, index) {
+      return '#foto-' + String(name).replace(/^venue-/, '') + (mode === 'photo' ? '-' + (index + 1) : '');
+    },
+    // #foto-sgmu → все плитки СГМУ, #foto-sgmu-7 → седьмое фото
+    parse: function (hash) {
+      var m = /^#foto-([a-z0-9-]+?)(?:-(\d+))?$/i.exec(hash || '');
+      if (!m) return null;
+      var name = this.sets['venue-' + m[1]] ? 'venue-' + m[1] : (this.sets[m[1]] ? m[1] : '');
+      if (!name) return null;
+      return m[2] ? { set: name, mode: 'photo', index: Number(m[2]) - 1 } : { set: name, mode: 'grid', index: 0 };
+    },
+    push: function (state) {
+      if (!window.history || !history.pushState) return;
+      history.pushState({ foto: state }, '', this.hash(state.set, state.mode, state.index));
+    },
+    replace: function () {
+      if (!window.history || !history.replaceState || !history.state || !history.state.foto) return;
+      var state = { set: this.current, mode: this.mode, index: this.index, depth: this.depth };
+      history.replaceState({ foto: state }, '', this.hash(state.set, state.mode, state.index));
+    },
+
+    /* ---- что видно на экране ---- */
+
     // все фото набора — маленькими плитками
     renderGrid: function () {
       var set = this.sets[this.current];
@@ -1070,30 +1098,28 @@
       grid.setAttribute('data-set', this.current);
     },
 
-    setMode: function (mode) {
+    showGrid: function () {
       var set = this.sets[this.current];
-      this.mode = mode;
-      this.root.classList.toggle('is-grid', mode === 'grid');
-      this.root.classList.toggle('is-photo', mode === 'photo');
-      var title = this.root.querySelector('.lightbox__title');
-      if (mode === 'grid') {
-        this.renderGrid();
-        title.textContent = set ? set.title + ' · ' + set.photos.length + ' фото' : '';
-        var img = this.root.querySelector('.lightbox__img');
-        img.removeAttribute('src');
-        // плитка фото, которое только что смотрели, — в поле зрения
-        var thumb = this.root.querySelector('[data-lightbox-thumb="' + this.index + '"]');
-        if (thumb && thumb.scrollIntoView) thumb.scrollIntoView({ block: 'nearest' });
-      } else {
-        title.textContent = '';
-      }
+      this.mode = 'grid';
+      this.root.classList.add('is-grid');
+      this.root.classList.remove('is-photo');
+      this.renderGrid();
+      this.root.querySelector('.lightbox__title').textContent = set ? set.title + ' · ' + set.photos.length + ' фото' : '';
+      this.root.querySelector('.lightbox__img').removeAttribute('src');
+      // плитка фото, которое только что смотрели, — в поле зрения
+      var thumb = this.root.querySelector('[data-lightbox-thumb="' + this.index + '"]');
+      if (thumb && thumb.scrollIntoView) thumb.scrollIntoView({ block: 'nearest' });
     },
 
-    show: function (index) {
+    showPhoto: function (index) {
       var set = this.sets[this.current];
       if (!set) return;
       var count = set.photos.length;
-      this.index = (index + count) % count;
+      this.index = ((index % count) + count) % count;
+      this.mode = 'photo';
+      this.root.classList.add('is-photo');
+      this.root.classList.remove('is-grid');
+      this.root.querySelector('.lightbox__title').textContent = '';
       var photo = set.photos[this.index];
       var img = this.root.querySelector('.lightbox__img');
       img.src = photo.full;
@@ -1108,41 +1134,106 @@
         var next = set.photos[(this.index + step + count) % count];
         if (next) new Image().src = next.full;
       }, this);
-      if (this.mode !== 'photo') this.setMode('photo');
     },
 
-    open: function (name, index, mode) {
-      if (!this.root || !this.sets[name]) return false;
-      this.current = name;
-      this.lastFocus = document.activeElement;
-      this.root.hidden = false;
-      document.documentElement.classList.add('is-locked');
-      this.index = index || 0;
-      if (mode === 'grid' && this.sets[name].photos.length > 1) {
-        this.setMode('grid');
+    // показать состояние (при открытии и когда человек нажал «Назад»/«Вперёд»)
+    render: function (state) {
+      if (!this.sets[state.set]) return;
+      if (this.root.hidden) {
+        this.lastFocus = document.activeElement;
+        this.savedY = window.pageYOffset || 0;
+        this.root.hidden = false;
+        document.documentElement.classList.add('is-locked');
+        var close = this.root.querySelector('.lightbox__close');
+        if (close) close.focus({ preventScroll: true });
+      }
+      if (this.current !== state.set) {
         var grid = this.root.querySelector('[data-lightbox-grid]');
         if (grid) grid.scrollTop = 0;
-      } else {
-        this.mode = '';
-        this.show(this.index);
       }
-      var close = this.root.querySelector('.lightbox__close');
-      if (close) close.focus({ preventScroll: true });
-      return true;
+      this.current = state.set;
+      this.depth = state.depth || 1;
+      if (state.mode === 'grid' && this.sets[state.set].photos.length > 1) {
+        this.index = state.index || 0;
+        this.showGrid();
+      } else {
+        this.showPhoto(state.index || 0);
+      }
     },
 
-    close: function () {
+    hide: function () {
       if (!this.root || this.root.hidden) return;
       this.root.hidden = true;
+      this.mode = '';
+      this.depth = 0;
       this.root.querySelector('.lightbox__img').removeAttribute('src');
       document.documentElement.classList.remove('is-locked');
       if (this.lastFocus && this.lastFocus.focus) this.lastFocus.focus({ preventScroll: true });
+      // страница остаётся там же, где была до просмотра (браузер при «Назад» может её сдвинуть)
+      var y = this.savedY || 0;
+      requestAnimationFrame(function () {
+        if (Math.abs((window.pageYOffset || 0) - y) > 2) window.scrollTo({ top: y, behavior: 'instant' });
+      });
+    },
+
+    /* ---- действия человека ---- */
+
+    open: function (name, index, mode) {
+      if (!this.root || !this.sets[name]) return false;
+      var state = { set: name, mode: mode === 'grid' ? 'grid' : 'photo', index: index || 0, depth: 1 };
+      this.render(state);
+      this.push(state);
+      return true;
+    },
+
+    // со всех плиток — к одному фото: новый шаг истории, «Назад» вернёт к плиткам
+    pick: function (index) {
+      this.showPhoto(index);
+      this.depth = 2;
+      this.push({ set: this.current, mode: 'photo', index: this.index, depth: 2 });
+    },
+
+    // листание внутри фото не добавляет шагов истории — только меняет адрес
+    step: function (delta) {
+      this.showPhoto(this.index + delta);
+      this.replace();
+    },
+
+    toGrid: function () {
+      if (this.depth === 2 && history.state && history.state.foto) { history.back(); return; }
+      this.showGrid();
+      this.replace();
+    },
+
+    close: function () {
+      if (this.root.hidden) return;
+      if (this.depth && history.state && history.state.foto) history.go(-this.depth);
+      else this.hide();
+    },
+
+    // открыли сайт по ссылке на фото — под просмотром главная, «Назад» вернёт на неё
+    fromUrl: function () {
+      if (!this.root) return;
+      var state = this.parse(location.hash);
+      if (!state) return;
+      if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+      // под просмотром — блок, откуда эти фото: закрыли — оказались у него
+      var section = document.getElementById(state.set) || document.getElementById('photos');
+      if (section && section.scrollIntoView) section.scrollIntoView({ block: 'start', behavior: 'instant' });
+      this.open(state.set, state.index, state.mode);
     },
 
     setup: function () {
       var self = this;
       self.root = q('[data-lightbox]');
       if (!self.root) return;
+
+      window.addEventListener('popstate', function (event) {
+        var state = event.state && event.state.foto;
+        if (state && self.sets[state.set]) self.render(state);
+        else if (self.root.hidden && self.parse(location.hash)) self.fromUrl();   // перешли по ссылке #foto-…
+        else self.hide();
+      });
 
       document.addEventListener('click', function (event) {
         var target = event.target;
@@ -1158,10 +1249,10 @@
         }
         if (self.root.hidden) return;
         var thumb = target.closest('[data-lightbox-thumb]');
-        if (thumb) self.show(Number(thumb.getAttribute('data-lightbox-thumb')) || 0);
-        else if (target.closest('[data-lightbox-all]')) self.setMode('grid');
-        else if (target.closest('[data-lightbox-prev]')) self.show(self.index - 1);
-        else if (target.closest('[data-lightbox-next]')) self.show(self.index + 1);
+        if (thumb) self.pick(Number(thumb.getAttribute('data-lightbox-thumb')) || 0);
+        else if (target.closest('[data-lightbox-all]')) self.toGrid();
+        else if (target.closest('[data-lightbox-prev]')) self.step(-1);
+        else if (target.closest('[data-lightbox-next]')) self.step(1);
         else if (target.closest('[data-lightbox-close]')) self.close();
         else if (self.mode === 'photo' && !target.closest('.lightbox__figure, .lightbox__bar')) self.close();
       });
@@ -1170,8 +1261,8 @@
         if (self.root.hidden) return;
         if (event.key === 'Escape') self.close();
         else if (self.mode !== 'photo') return;
-        else if (event.key === 'ArrowLeft') self.show(self.index - 1);
-        else if (event.key === 'ArrowRight') self.show(self.index + 1);
+        else if (event.key === 'ArrowLeft') self.step(-1);
+        else if (event.key === 'ArrowRight') self.step(1);
       });
 
       // свайп влево/вправо на телефоне — только когда смотрим по одному
@@ -1183,10 +1274,11 @@
         if (startX === null) return;
         var dx = event.changedTouches[0].clientX - startX;
         startX = null;
-        if (Math.abs(dx) > 50) self.show(self.index + (dx < 0 ? 1 : -1));
+        if (Math.abs(dx) > 50) self.step(dx < 0 ? 1 : -1);
       });
     }
   };
+
 
 
   function renderCoaches(items) {
@@ -1547,7 +1639,10 @@
     // а первый экран и контакты показывают то, что прописано в index.html
     loadData().then(render).catch(function () {
       // ничего не трогаем: остаются контакты по умолчанию из разметки
-    }).then(loader.done, loader.done);
+    }).then(loader.done, loader.done).then(function () {
+      // открыли ссылку на фото (#foto-sgmu-7) — сразу показываем его
+      gallery.fromUrl();
+    });
   }
 
   if (document.readyState === 'loading') {
