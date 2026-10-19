@@ -3,64 +3,56 @@
     {
       "day": "Вторник",
       "time": "20:30–22:00",
-      "venue": "sgmu.json",
       "type": "rabochaya.json",
-      "levels": [],
-      "price": "",
+      "venue": "sgmu.json",
       "show": true
     },
     {
       "day": "Среда",
       "time": "19:00–21:00",
-      "venue": "dinamo.json",
       "type": "igrovaya.json",
+      "venue": "dinamo.json",
       "levels": [
         "b.json",
         "c-plus.json"
       ],
-      "price": "",
       "show": true
     },
     {
       "day": "Четверг",
       "time": "20:30–22:00",
-      "venue": "sgmu.json",
       "type": "rabochaya.json",
-      "levels": [],
-      "price": "",
+      "venue": "sgmu.json",
       "show": true
     },
     {
       "day": "Пятница",
       "time": "20:00–22:00",
-      "venue": "dinamo.json",
       "type": "igrovaya.json",
+      "venue": "dinamo.json",
       "levels": [
         "c-plus.json",
         "c.json"
       ],
-      "price": "",
       "show": true
     },
     {
       "day": "Суббота",
       "time": "18:00–20:00",
-      "venue": "sgmu.json",
       "type": "igrovaya.json",
+      "venue": "sgmu.json",
       "levels": [
         "c.json",
         "e-plus.json",
         "e.json"
       ],
-      "price": "",
       "show": true
     },
     {
       "day": "Суббота",
       "time": "20:00–22:00",
-      "venue": "",
       "type": "personalnaya.json",
-      "levels": [],
+      "venue": "sgmu.json",
       "price": 0,
       "slot_minutes": 60,
       "show": true
@@ -68,13 +60,11 @@
     {
       "day": "Воскресенье",
       "time": "18:00–22:00",
-      "venue": "",
       "type": "personalnaya.json",
-      "levels": [],
+      "venue": "sgmu.json",
       "price": 0,
       "slot_minutes": 60,
       "show": true
     }
-  ],
-  "cancellations": []
+  ]
 }
