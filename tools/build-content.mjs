@@ -492,22 +492,25 @@ for (const t of trainingTypes.filter(isShown)) {
 
 const hero = readObject('hero.json');
 
-// Лента фото под первым экраном собирается сама из фото площадок — все, кроме первого
-// (первое — большое в сетке площадки, обычно общее фото). Площадки чередуются,
-// а в браузере лента каждый раз перемешивается. Сюда же — «Ещё фото в ленту» из админки
-// (турниры, праздники — то, что не про конкретный зал).
+// Лента фото под первым экраном: «Фото ленты» из админки — ровно они и в этом порядке.
+// Если там пусто — лента собирается сама из фото площадок (все, кроме первого, общего);
+// тогда в браузере берутся случайные и каждый раз в новом порядке.
 const stripContent = readObject('strip.json');
 const stripPhotos = [];
+let stripCustom = false;
 if (stripContent.show !== false) {
-  const pools = venuesOut.map((v) => v.photos.slice(1));
-  for (let i = 0; pools.some((pool) => i < pool.length); i += 1) {
-    for (const pool of pools) if (pool[i]) stripPhotos.push(pool[i]);
-  }
   for (const path of list(stripContent.photos)) {
     const variants = await photoVariants(path, 'Лента фото');
     if (!variants) continue;
-    variants.alt = `Бадминтон в Саратове — клуб «Бешеные ракетки», фото ${stripPhotos.length + 1}`;
+    variants.alt = `Бадминтон в Саратове — тренировка клуба «Бешеные ракетки», фото ${stripPhotos.length + 1}`;
     stripPhotos.push(variants);
+  }
+  stripCustom = stripPhotos.length > 0;
+  if (!stripCustom) {
+    const pools = venuesOut.map((v) => v.photos.slice(1));
+    for (let i = 0; pools.some((pool) => i < pool.length); i += 1) {
+      for (const pool of pools) if (pool[i]) stripPhotos.push(pool[i]);
+    }
   }
 }
 // одно и то же фото — один раз
@@ -545,7 +548,7 @@ function cards(file, section) {
 
 const data = {
   contacts,
-  strip: { photos: stripPhotos },
+  strip: { photos: stripPhotos, custom: stripCustom },
   hero: { heading: str(hero.heading), title: str(hero.title), slogan: str(hero.slogan), text: str(hero.text) },
   trainings,
   schedule: schedule.map(({ venueId, ...row }) => row),

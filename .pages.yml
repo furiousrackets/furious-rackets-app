@@ -182,13 +182,13 @@ content:
           - name: show
             component: show
           - name: photos
-            label: Ещё фото в ленту
+            label: Фото ленты
             type: image
-            description: Лента под первым экраном собирается сама из фото площадок (все, кроме первого — общего) и каждый раз перемешивается. Здесь — дополнительные кадры, которые не про конкретный зал (турниры, праздники). Можно загружать как есть — сайт сам их сожмёт
+            description: Лента под первым экраном — эти фото, в этом порядке. Если пусто — лента соберётся сама из фото площадок. Можно загружать как есть — сайт сам их сожмёт
             options:
               multiple: true
               unique: true
-              path: site/media
+              path: site/media/strip
               extensions: [jpg, jpeg, png, webp]
 
       - name: training_types

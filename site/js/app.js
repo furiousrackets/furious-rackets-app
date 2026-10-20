@@ -852,7 +852,7 @@
 
   var STRIP_SPEED = 28;        // пикселей в секунду
   var STRIP_RESUME_MS = 3500;  // через сколько продолжить после ручного листания
-  var STRIP_MAX = 18;          // сколько фото в ленте (каждый раз случайные)
+  var STRIP_MAX = 18;          // сколько фото в ленте, если она собирается из фото площадок
 
   function stripItem(p, index, clone) {
     return '<a class="strip__item' + (clone ? ' is-clone' : '') + '" href="' + safeUrl(p.full) + '" data-gallery="strip" data-index="' + index + '"' +
@@ -875,9 +875,10 @@
   function renderStrip(block) {
     var host = q('[data-strip]');
     if (!host) return;
-    // каждый раз в новом порядке и не больше STRIP_MAX — фото площадок много, страница не должна тяжелеть
-    var photos = shuffle(list(block && block.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); }))
-      .slice(0, STRIP_MAX);
+    var photos = list(block && block.photos).filter(function (p) { return safeUrl(p.src) && safeUrl(p.full); });
+    // фото ленты из админки — как есть и в том порядке; собранные из фото площадок —
+    // каждый раз случайные и не больше STRIP_MAX, чтобы страница не тяжелела
+    if (!(block && block.custom)) photos = shuffle(photos).slice(0, STRIP_MAX);
 
     host.innerHTML = photos.map(function (p, index) { return stripItem(p, index, false); }).join('');
 
