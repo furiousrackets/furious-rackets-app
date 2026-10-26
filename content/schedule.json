@@ -55,7 +55,7 @@
       "venue": "sgmu.json",
       "price": 0,
       "slot_minutes": 60,
-      "show": true
+      "show": false
     },
     {
       "day": "Воскресенье",
@@ -64,7 +64,7 @@
       "venue": "sgmu.json",
       "price": 0,
       "slot_minutes": 60,
-      "show": true
+      "show": false
     }
   ]
 }
