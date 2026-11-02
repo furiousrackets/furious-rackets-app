@@ -2,7 +2,7 @@
   "items": [
     {
       "day": "Вторник",
-      "time": "20:30–22:00",
+      "time": "19:30–21:30",
       "type": "rabochaya.json",
       "venue": "sgmu.json",
       "show": true
@@ -20,7 +20,7 @@
     },
     {
       "day": "Четверг",
-      "time": "20:30–22:00",
+      "time": "19:30–21:30",
       "type": "rabochaya.json",
       "venue": "sgmu.json",
       "show": true
