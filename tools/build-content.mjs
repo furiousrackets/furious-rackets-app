@@ -523,6 +523,24 @@ const signup = readObject('signup.json');
 const final = readObject('final.json');
 const sheet = isObject(signup.sheet) ? signup.sheet : {};   // окно «Записаться»
 
+// Страница «Политика обработки персональных данных» (site/privacy/)
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+function dateText(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]} года` : '';
+}
+const privacyFile = readObject('privacy.json');
+const privacyDate = parseDate(privacyFile.date);
+if (str(privacyFile.date) && !privacyDate) warn(`Политика: не понимаю дату «${str(privacyFile.date)}»`);
+const privacy = {
+  title: str(privacyFile.title),
+  date: privacyDate,
+  dateText: dateText(privacyDate),
+  html: markdown(privacyFile.text, 'Политика обработки данных')
+};
+if (!privacy.html) warn('Политика обработки данных: пустой текст — страница /privacy/ будет пустой');
+
 
 // Акции и турниры — разные списки, но карточки у них одинаковые
 function cards(file, section) {
@@ -591,7 +609,8 @@ const data = {
     groupLabel: str(final.group_label) || 'Группа в {сеть}',
     links: pickNetworks(final.links, 'Приходи играть, ссылки на соцсети'),
     aboutHtml: markdown(final.about, 'Приходи играть, о клубе')
-  }
+  },
+  privacy
 };
 
 writeFileSync(OUT, JSON.stringify(data) + '\n');

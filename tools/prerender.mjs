@@ -8,6 +8,7 @@
 //    всё равно загружает data.json и перерисовывает блоки — как раньше;
 //  • добавляет в <head> разметку schema.org (JSON-LD) о клубе: название, телефон,
 //    площадки с адресами, соцсети — по ней поисковики понимают, что это за сайт;
+//  • так же заполняет страницу политики dist/privacy/ (js/privacy.js);
 //  • пишет dist/sitemap.xml с датой сборки.
 //
 // Запуск: npm run build && npm run dist  (на GitHub это делает workflow)
@@ -147,6 +148,30 @@ document.head.appendChild(ld);
 writeFileSync(join(DIST, 'index.html'), dom.serialize() + '\n');
 window.close();
 
+/* ---------- 4. Страница «Политика обработки персональных данных» ----------
+   Так же, как главная: запускаем js/privacy.js и сохраняем страницу уже с текстом.
+   Текст помечается data-ready — в браузере скрипт его не перерисовывает. */
+
+const PRIVACY = join(DIST, 'privacy', 'index.html');
+let privacyReady = false;
+if (existsSync(PRIVACY)) {
+  const page = new JSDOM(readFileSync(PRIVACY, 'utf8'), { url: `${SITE_URL}privacy/`, runScripts: 'outside-only' });
+  page.window.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
+  page.window.eval(readFileSync(join(DIST, 'js', 'privacy.js'), 'utf8'));
+  const box = () => page.window.document.querySelector('[data-privacy-text]');
+  for (let i = 0; i < 50 && !box()?.hasAttribute('data-ready'); i += 1) {
+    await wait(20);
+  }
+  privacyReady = Boolean(box()?.hasAttribute('data-ready'));
+  if (privacyReady) {
+    writeFileSync(PRIVACY, page.serialize() + '\n');
+  } else {
+    console.warn((process.env.GITHUB_ACTIONS ? '::warning::' : '⚠ ') +
+      'privacy/: текст политики не подставился — страница осталась как в site/ (текст загрузится в браузере)');
+  }
+  page.window.close();
+}
+
 // Дата по Москве: сборка идёт на GitHub в UTC
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date());
 // Фото площадок — в sitemap отдельными записями, чтобы попадали в поиск по картинкам
@@ -163,6 +188,14 @@ writeFileSync(join(DIST, 'sitemap.xml'),
   '    <changefreq>weekly</changefreq>\n' +
   images +
   '  </url>\n' +
+  (existsSync(PRIVACY)
+    ? '  <url>\n' +
+      `    <loc>${SITE_URL}privacy/</loc>\n` +
+      `    <lastmod>${data.privacy?.date || today}</lastmod>\n` +
+      '    <changefreq>yearly</changefreq>\n' +
+      '  </url>\n'
+    : '') +
   '</urlset>\n');
 
-console.log(`Готово: dist/ (в HTML заполнены блоки: ${rendered.join(', ') || 'нет'}; sitemap.xml, JSON-LD)`);
+console.log(`Готово: dist/ (в HTML заполнены блоки: ${rendered.join(', ') || 'нет'}; ` +
+  `политика: ${privacyReady ? 'с текстом' : 'без текста'}; sitemap.xml, JSON-LD)`);

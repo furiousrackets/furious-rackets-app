@@ -1720,6 +1720,51 @@ p { margin: 0 0 1em; }
 }
 .footer-inner p { margin: 0; }
 
+/* ---------- страница «Политика обработки персональных данных» (privacy/) ---------- */
+
+body.page-legal { padding-bottom: 0; }   /* на этой странице нет липкой кнопки «Записаться» */
+
+.legal {
+  padding: 36px 0 56px;
+  border-bottom: 1px solid var(--line);
+}
+
+.legal__inner { max-width: 840px; }
+
+.legal__title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: clamp(26px, 6vw, 44px);
+  line-height: 1.02;
+  margin: 0 0 14px;
+}
+
+.legal__date {
+  color: var(--muted);
+  margin: 0 0 30px;
+}
+
+.legal__text h2 {
+  margin: 2em 0 0.6em;
+  font-family: var(--font-head);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 21px;
+  line-height: 1.15;
+  color: var(--acc);
+}
+
+.legal__text li { margin: 0.35em 0; }
+.legal__text a { overflow-wrap: anywhere; }   /* длинные адреса не вылезают за экран телефона */
+
+@media (min-width: 860px) {
+  .legal { padding: 56px 0 84px; }
+  .legal__text h2 { font-size: 24px; }
+}
+
 /* ---------- липкая кнопка ---------- */
 
 .sticky-cta {
